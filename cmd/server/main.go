@@ -8,6 +8,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/template/html/v2"
+
+	"github.com/Xapsiel/bpla_dashboard/internal/config"
+	"github.com/Xapsiel/bpla_dashboard/internal/repository"
 )
 
 func InitLogger() *slog.Logger {
@@ -33,25 +36,8 @@ func main() {
 	}
 	defer db.Close()
 	repo := repository.NewRepository(db)
-	engine := html.New("./web/views", ".gohtml")
-	engine.AddFunc(
-		"scoreFilled", func(score int) []struct{} {
-			return make([]struct{}, score)
-		},
-	)
-	engine.AddFunc(
-		"scoreEmpty", func(score int) []struct{} {
-			return make([]struct{}, 5-score)
-		},
-	)
 
-	engine.Reload(!cfg.IsProduction)
-
-	// Pass the engine to the Views
-	app := fiber.New(fiber.Config{
-		Views: engine,
-		// TODO: custom ErrorHandler:
-	})
+	app := fiber.New(fiber.Config{})
 
 	router := httpv1.New(httpv1.Config{
 		Repo:       repo,

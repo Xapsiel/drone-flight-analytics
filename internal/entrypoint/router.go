@@ -1,0 +1,74 @@
+package httpv1
+
+import (
+	"context"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
+
+	"github.com/Xapsiel/bpla_dashboard/internal/model"
+)
+
+type Repository interface {
+	GetDistrictGeoJSON(ctx context.Context, name string) (*model.DistrictGeoJSON, error)
+}
+type Router struct {
+	repo       Repository
+	domain     string
+	tileServer string
+}
+
+type Config struct {
+	Repo       Repository
+	Domain     string
+	TileServer string
+}
+
+func New(cfg Config) *Router {
+	return &Router{
+		repo:       cfg.Repo,
+		domain:     cfg.Domain,
+		tileServer: cfg.TileServer,
+	}
+}
+
+func (r *Router) Routes(app fiber.Router) {
+	app.Static("assets", "web/assets")
+	app.Static("", "web/assets")
+
+	app.Use(logger.New(logger.Config{
+		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
+	}))
+
+	app.Get("/dashboard", monitor.New())
+
+	//API ROUTER
+	api.New(api.Config{
+		Repo:  r.repo,
+		Group: app.Group("/api"),
+	})
+
+	app.Get("/", r.IndexHandler)
+	states := app.Group("/state")
+	states.Get("/geojson", r.StateGeoJSON)
+	counties := app.Group("/counties")
+	counties.Get("/geojson", r.CountyGeoJSON)
+	app.Get("/playground", r.PlaygroundHandler)
+}
+
+func (r *Router) NewPage() *model.Page {
+	return &model.Page{
+		Domain: r.domain,
+		Year:   time.Now().Year(),
+	}
+}
+
+func (r *Router) NewErrorPage(err error) *model.Page {
+	return &model.Page{
+		Error:  err.Error(),
+		Domain: r.domain,
+		Year:   time.Now().Year(),
+	}
+}
