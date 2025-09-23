@@ -13,6 +13,7 @@ import (
 
 type Repository interface {
 	GetDistrictGeoJSON(ctx context.Context, name string) (*model.DistrictGeoJSON, error)
+	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
 }
 type Router struct {
 	repo       Repository
@@ -44,18 +45,9 @@ func (r *Router) Routes(app fiber.Router) {
 
 	app.Get("/dashboard", monitor.New())
 
-	//API ROUTER
-	api.New(api.Config{
-		Repo:  r.repo,
-		Group: app.Group("/api"),
-	})
+	district := app.Group("/district")
+	district.Get("/", r.DistrictGeoJSONHandler)
 
-	app.Get("/", r.IndexHandler)
-	states := app.Group("/state")
-	states.Get("/geojson", r.StateGeoJSON)
-	counties := app.Group("/counties")
-	counties.Get("/geojson", r.CountyGeoJSON)
-	app.Get("/playground", r.PlaygroundHandler)
 }
 
 func (r *Router) NewPage() *model.Page {

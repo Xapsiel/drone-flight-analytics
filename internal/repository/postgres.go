@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Xapsiel/bpla_dashboard/internal/config"
+	"github.com/Xapsiel/bpla_dashboard/internal/migration"
 )
 
 type Repository struct {

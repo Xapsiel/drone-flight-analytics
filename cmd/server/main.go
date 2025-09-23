@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/template/html/v2"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/config"
+	httpv1 "github.com/Xapsiel/bpla_dashboard/internal/entrypoint"
 	"github.com/Xapsiel/bpla_dashboard/internal/repository"
 )
 
@@ -40,9 +40,8 @@ func main() {
 	app := fiber.New(fiber.Config{})
 
 	router := httpv1.New(httpv1.Config{
-		Repo:       repo,
-		Domain:     cfg.Domain,
-		TileServer: cfg.TileServer,
+		Repo:   repo,
+		Domain: cfg.Domain,
 	})
 	router.Routes(app)
 
