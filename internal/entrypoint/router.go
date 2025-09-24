@@ -77,6 +77,6 @@ func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
 	case "avg_flight_time":
 	case "flight_count":
 	case "flight_duration":
-
 	}
+	return ctx.JSON(fiber.Map{})
 }
