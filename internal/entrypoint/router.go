@@ -48,6 +48,8 @@ func (r *Router) Routes(app fiber.Router) {
 	district := app.Group("/district")
 	district.Get("/", r.DistrictGeoJSONHandler)
 
+	district.Get("/top", r.GetTopByHandler)
+
 }
 
 func (r *Router) NewPage() *model.Page {
@@ -62,5 +64,19 @@ func (r *Router) NewErrorPage(err error) *model.Page {
 		Error:  err.Error(),
 		Domain: r.domain,
 		Year:   time.Now().Year(),
+	}
+}
+
+func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
+	filter := ctx.Query("criteria", "none")
+	if filter == "" {
+		filter = "flight_frequency"
+	}
+	switch filter {
+	case "flight_frequency":
+	case "avg_flight_time":
+	case "flight_count":
+	case "flight_duration":
+
 	}
 }
