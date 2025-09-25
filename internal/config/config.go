@@ -7,6 +7,7 @@ import (
 type Config struct {
 	DatabaseConfig `yaml:"database"`
 	HostConfig     `yaml:"host"`
+	OidcConfig     `yaml:"oidc"`
 }
 
 type HostConfig struct {
@@ -23,6 +24,15 @@ type DatabaseConfig struct {
 	Name           string `yaml:"name"`
 	MaxConnections int32  `yaml:"maxConnections"`
 	Sslmode        string `yaml:"sslmode"`
+}
+
+type OidcConfig struct {
+	ClientID       string   `yaml:"client_id"`
+	RedirectURI    string   `yaml:"redirect_uri"`
+	Scopes         []string `yaml:"scopes"`
+	KeycloakURL    string   `yaml:"keycloak_url"`
+	KeycloakRealm  string   `yaml:"keycloak_realm"`
+	KeycloakSecret string   `yaml:"keycloak_secret"`
 }
 
 func New(path string) (*Config, error) {

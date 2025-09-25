@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
+	"github.com/Xapsiel/bpla_dashboard/internal/service"
 )
 
 type Repository interface {
@@ -19,10 +20,12 @@ type Router struct {
 	repo       Repository
 	domain     string
 	tileServer string
+	service    *service.Service
 }
 
 type Config struct {
 	Repo       Repository
+	Service    *service.Service
 	Domain     string
 	TileServer string
 }
@@ -32,6 +35,7 @@ func New(cfg Config) *Router {
 		repo:       cfg.Repo,
 		domain:     cfg.Domain,
 		tileServer: cfg.TileServer,
+		service:    cfg.Service,
 	}
 }
 
@@ -46,9 +50,12 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Get("/dashboard", monitor.New())
 
 	district := app.Group("/district")
+	district.Use(r.RoleMiddleware("admin", "analytics"))
 	district.Get("/", r.DistrictGeoJSONHandler)
-
 	district.Get("/top", r.GetTopByHandler)
+	user := app.Group("/user")
+	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
+	user.Get("/redirect", r.RedirectAuthURLHandler)
 
 }
 
