@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
+	"github.com/Xapsiel/bpla_dashboard/internal/service"
 )
 
 type Repository interface {
@@ -16,22 +17,25 @@ type Repository interface {
 	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
 }
 type Router struct {
-	repo       Repository
-	domain     string
-	tileServer string
+	repo         Repository
+	domain       string
+	isProduction bool
+	service      *service.Service
 }
 
 type Config struct {
-	Repo       Repository
-	Domain     string
-	TileServer string
+	Repo         Repository
+	Service      *service.Service
+	Domain       string
+	IsProduction bool
 }
 
 func New(cfg Config) *Router {
 	return &Router{
-		repo:       cfg.Repo,
-		domain:     cfg.Domain,
-		tileServer: cfg.TileServer,
+		repo:         cfg.Repo,
+		domain:       cfg.Domain,
+		isProduction: cfg.IsProduction,
+		service:      cfg.Service,
 	}
 }
 
@@ -44,11 +48,15 @@ func (r *Router) Routes(app fiber.Router) {
 	}))
 
 	app.Get("/dashboard", monitor.New())
-
 	district := app.Group("/district")
+	if r.isProduction {
+		district.Use(r.RoleMiddleware("admin", "analytics"))
+	}
 	district.Get("/", r.DistrictGeoJSONHandler)
-
 	district.Get("/top", r.GetTopByHandler)
+	user := app.Group("/user")
+	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
+	user.Get("/redirect", r.RedirectAuthURLHandler)
 
 }
 
@@ -77,6 +85,6 @@ func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
 	case "avg_flight_time":
 	case "flight_count":
 	case "flight_duration":
-
 	}
+	return ctx.JSON(fiber.Map{})
 }

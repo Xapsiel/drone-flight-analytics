@@ -11,6 +11,7 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/config"
 	httpv1 "github.com/Xapsiel/bpla_dashboard/internal/entrypoint"
 	"github.com/Xapsiel/bpla_dashboard/internal/repository"
+	"github.com/Xapsiel/bpla_dashboard/internal/service"
 )
 
 func InitLogger() *slog.Logger {
@@ -38,10 +39,12 @@ func main() {
 	repo := repository.NewRepository(db)
 
 	app := fiber.New(fiber.Config{})
-
+	service := service.New(repo, cfg.OidcConfig)
 	router := httpv1.New(httpv1.Config{
-		Repo:   repo,
-		Domain: cfg.Domain,
+		Repo:         repo,
+		Domain:       cfg.Domain,
+		Service:      &service,
+		IsProduction: cfg.IsProduction,
 	})
 	router.Routes(app)
 

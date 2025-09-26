@@ -17,6 +17,7 @@ CREATE TABLE  IF NOT EXISTS messages (
                                  rmk TEXT,
                                  min_alt INTEGER NOT NULL,
                                  max_alt INTEGER NOT NULL,
+                                 file_id INTEGER REFERENCES files(id),
                                  UNIQUE(sid,atd,dep_coordinate,arr_coordinate)
                                  );
 
