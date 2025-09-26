@@ -41,9 +41,10 @@ func main() {
 	app := fiber.New(fiber.Config{})
 	service := service.New(repo, cfg.OidcConfig)
 	router := httpv1.New(httpv1.Config{
-		Repo:    repo,
-		Domain:  cfg.Domain,
-		Service: &service,
+		Repo:         repo,
+		Domain:       cfg.Domain,
+		Service:      &service,
+		IsProduction: cfg.IsProduction,
 	})
 	router.Routes(app)
 

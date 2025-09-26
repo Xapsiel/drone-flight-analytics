@@ -17,25 +17,25 @@ type Repository interface {
 	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
 }
 type Router struct {
-	repo       Repository
-	domain     string
-	tileServer string
-	service    *service.Service
+	repo         Repository
+	domain       string
+	isProduction bool
+	service      *service.Service
 }
 
 type Config struct {
-	Repo       Repository
-	Service    *service.Service
-	Domain     string
-	TileServer string
+	Repo         Repository
+	Service      *service.Service
+	Domain       string
+	IsProduction bool
 }
 
 func New(cfg Config) *Router {
 	return &Router{
-		repo:       cfg.Repo,
-		domain:     cfg.Domain,
-		tileServer: cfg.TileServer,
-		service:    cfg.Service,
+		repo:         cfg.Repo,
+		domain:       cfg.Domain,
+		isProduction: cfg.IsProduction,
+		service:      cfg.Service,
 	}
 }
 
@@ -48,9 +48,10 @@ func (r *Router) Routes(app fiber.Router) {
 	}))
 
 	app.Get("/dashboard", monitor.New())
-
 	district := app.Group("/district")
-	district.Use(r.RoleMiddleware("admin", "analytics"))
+	if r.isProduction {
+		district.Use(r.RoleMiddleware("admin", "analytics"))
+	}
 	district.Get("/", r.DistrictGeoJSONHandler)
 	district.Get("/top", r.GetTopByHandler)
 	user := app.Group("/user")
