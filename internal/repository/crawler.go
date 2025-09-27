@@ -61,3 +61,17 @@ func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage) 
 	tx.Commit(ctx)
 	return nil
 }
+
+func (r *Repository) SaveFileInfo(ctx context.Context, mf model.File, valid_count int, error_count int) error {
+	query := `
+  				INSERT INTO 
+  				    files(user_id, filename, size, valid_count, error_count, metadata,status) 
+  				VALUES ($1, $2, $3, $4, $5, $6,$7)
+  				ON CONFLICT (metadata) DO UPDATE SET valid_count = $4,error_count=$5, status=$7;
+			 `
+	_, err := r.db.Exec(ctx, query, mf.AuthorID, mf.Filename, mf.Size, valid_count, error_count, mf.Metadata, mf.Status)
+	if err != nil {
+		return err
+	}
+	return nil
+}

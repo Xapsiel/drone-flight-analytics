@@ -38,7 +38,9 @@ func main() {
 	defer db.Close()
 	repo := repository.NewRepository(db)
 
-	app := fiber.New(fiber.Config{})
+	app := fiber.New(fiber.Config{
+		BodyLimit: cfg.MaxUploadSize * 1024 * 1024,
+	})
 	service := service.New(repo, cfg.OidcConfig)
 	router := httpv1.New(httpv1.Config{
 		Repo:         repo,
@@ -46,7 +48,7 @@ func main() {
 		Service:      &service,
 		IsProduction: cfg.IsProduction,
 	})
-	router.Routes(app)
 
+	router.Routes(app)
 	log.Fatal(app.Listen(":" + cfg.HostConfig.Port))
 }
