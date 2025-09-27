@@ -31,11 +31,7 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 	}
 
 	go func(file *multipart.FileHeader) {
-		err := r.service.MetricsService.Update(context.Background())
-		if err != nil {
-			slog.Error(fmt.Sprintf("error update metrics: %v", err))
-			return
-		}
+
 		jsonData, err := json.Marshal(file.Header)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error with marshaling: %v", err))
@@ -71,7 +67,11 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 			slog.Error(fmt.Sprintf("error saving file: %v", err))
 			return
 		}
-
+		err = r.service.MetricsService.Update(context.Background())
+		if err != nil {
+			slog.Error(fmt.Sprintf("error update metrics: %v", err))
+			return
+		}
 		slog.Info(fmt.Sprintf("successfully processed file: %v", mf.Filename))
 
 	}(file)
