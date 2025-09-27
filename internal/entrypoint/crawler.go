@@ -31,6 +31,11 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 	}
 
 	go func(file *multipart.FileHeader) {
+		err := r.service.MetricsService.Update(context.Background())
+		if err != nil {
+			slog.Error(fmt.Sprintf("error update metrics: %v", err))
+			return
+		}
 		jsonData, err := json.Marshal(file.Header)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error with marshaling: %v", err))
@@ -54,22 +59,22 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 			slog.Error(fmt.Sprintf("error opening file: %v", err))
 			return
 		}
-		err = r.repo.SaveFileInfo(context.Background(), mf, 0, 0)
+		file_id, err := r.repo.SaveFileInfo(context.Background(), mf, 0, 0)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error saving file: %v", err))
 		}
 
-		validCount, errorCount, err := r.service.ParserService.ProcessXLSX(context.Background(), f, authorID, file.Filename)
+		validCount, errorCount, err := r.service.ParserService.ProcessXLSX(context.Background(), f, authorID, file.Filename, file_id)
 		mf.Status = "parsed"
-		err = r.repo.SaveFileInfo(context.Background(), mf, validCount, errorCount)
+		_, err = r.repo.SaveFileInfo(context.Background(), mf, validCount, errorCount)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error saving file: %v", err))
 			return
 		}
+
+		slog.Info(fmt.Sprintf("successfully processed file: %v", mf.Filename))
+
 	}(file)
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Ошибка обработки XLSX: " + err.Error()})
-	}
 	return ctx.JSON(fiber.Map{
 		"message":  "Файл успешно обработан",
 		"authorID": authorID,

@@ -11,7 +11,7 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 )
 
-func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage) error {
+func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage, fileID int) error {
 	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.ReadUncommitted,
 	})
@@ -22,9 +22,9 @@ func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage) 
         INSERT INTO messages(
                              region,
             sid, dof, atd, ata, dep_coords_normalize, arr_coords_normalize,
-            dep_coordinate, arr_coordinate, arr_region_rf, opr, reg, typ, rmk, min_alt, max_alt
+            dep_coordinate, arr_coordinate, arr_region_rf, opr, reg, typ, rmk, min_alt, max_alt,file_id
         )
-        VALUES ((SELECT d.gid FROM district_shapes as d WHERE st_contains(d.geom,ST_SetSRID(ST_GeomFromWKB($7),0))),$1, $2, $3, $4, $5, $6, ST_GeomFromWKB($7), ST_GeomFromWKB($8), $9, $10, $11, $12, $13, $14, $15)
+        VALUES ((SELECT d.gid FROM district_shapes as d WHERE st_contains(d.geom,ST_SetSRID(ST_GeomFromWKB($7),0))),$1, $2, $3, $4, $5, $6, ST_GeomFromWKB($7), ST_GeomFromWKB($8), $9, $10, $11, $12, $13, $14, $15,$16)
         ON CONFLICT (sid,atd, dep_coordinate, arr_coordinate) DO NOTHING;
     `
 	slog.Info("Executing insert query", "sid", mes.SID)
@@ -34,7 +34,7 @@ func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage) 
 	_, err = tx.Exec(ctx, query,
 		mes.SID, mes.DOF, mes.ATD, mes.ATA, mes.DepCoords, mes.ArrCoords,
 		wkb.Value(mes.DepLatLon), wkb.Value(mes.ArrLatLon), mes.ArrRegionRF,
-		mes.OPR, mes.REG, mes.TYP, mes.RMK, mes.MinAlt, mes.MaxAlt)
+		mes.OPR, mes.REG, mes.TYP, mes.RMK, mes.MinAlt, mes.MaxAlt, fileID)
 	if err != nil {
 		tx.Rollback(ctx)
 		slog.Error("Failed to execute query", "sid", mes.SID, "err", err)
@@ -62,16 +62,26 @@ func (r *Repository) SaveMessage(ctx context.Context, mes *model.ParsedMessage) 
 	return nil
 }
 
-func (r *Repository) SaveFileInfo(ctx context.Context, mf model.File, valid_count int, error_count int) error {
+func (r *Repository) SaveFileInfo(ctx context.Context, mf model.File, valid_count int, error_count int) (int, error) {
 	query := `
-  				INSERT INTO 
-  				    files(user_id, filename, size, valid_count, error_count, metadata,status) 
-  				VALUES ($1, $2, $3, $4, $5, $6,$7)
-  				ON CONFLICT (metadata) DO UPDATE SET valid_count = $4,error_count=$5, status=$7;
+  				INSERT INTO files(
+					user_id, filename, size, valid_count, error_count, metadata, status
+				)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT (metadata) 
+				DO UPDATE SET 
+					valid_count = EXCLUDED.valid_count,
+					error_count = EXCLUDED.error_count,
+					status = EXCLUDED.status
+				RETURNING id;
+
+				
 			 `
-	_, err := r.db.Exec(ctx, query, mf.AuthorID, mf.Filename, mf.Size, valid_count, error_count, mf.Metadata, mf.Status)
+	row := r.db.QueryRow(ctx, query, mf.AuthorID, mf.Filename, mf.Size, valid_count, error_count, mf.Metadata, mf.Status)
+	var id int
+	err := row.Scan(&id)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return id, nil
 }

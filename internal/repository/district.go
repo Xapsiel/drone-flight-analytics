@@ -127,3 +127,52 @@ func (r *Repository) GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model
 	}
 	return results, nil
 }
+
+func (r *Repository) GetRegions(ctx context.Context) []model.District {
+	res := []model.District{}
+	query := `
+			 SELECT gid,name_ru FROM district_shapes
+			`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return res
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gid int
+		var name string
+		err = rows.Scan(&gid, &name)
+		if err != nil {
+			return res
+		}
+		res = append(res, model.District{
+			Gid:  &gid,
+			Name: &name,
+		})
+	}
+	return res
+}
+
+func (r *Repository) GetFlightYears(ctx context.Context) []int {
+	res := []int{}
+	query := `
+			SELECT EXTRACT(YEAR FROM dof) AS year
+			FROM messages
+				WHERE dof IS NOT NULL
+			GROUP BY EXTRACT(YEAR FROM dof);
+			`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return res
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gid int
+		err = rows.Scan(&gid)
+		if err != nil {
+			return res
+		}
+		res = append(res, gid)
+	}
+	return res
+}

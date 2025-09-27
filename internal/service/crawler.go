@@ -39,75 +39,72 @@ func (p *ParserService) cleanString(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func (p *ParserService) ProcessXLSX(ctx context.Context, f *excelize.File, authorID, filename string) (int, int, error) {
-
-	sheet := f.GetSheetName(0)
-	rows, err := f.GetRows(sheet)
-	if err != nil {
-		log.Printf("Error reading rows from %s: %v", filename, err)
-		return 0, 0, err
-	}
-
-	seen := make(map[string]struct{})
-	reportLines := []string{}
+func (p *ParserService) ProcessXLSX(ctx context.Context, f *excelize.File, authorID, filename string, fileID int) (int, int, error) {
 	validCount := 0
 	errorCount := 0
-	for i, row := range rows {
-		if len(row) < 2 {
-			errorCount++
-			continue
-		}
+	reportLines := []string{}
+	seen := make(map[string]struct{})
 
-		region := p.cleanString(row[0])
-		shrRaw := p.cleanString(row[1])
-		idepRaw := ""
-		iarrRaw := ""
-		if len(row) > 2 {
-			idepRaw = p.cleanString(row[2])
-		}
-		if len(row) > 3 {
-			iarrRaw = p.cleanString(row[3])
-		}
-
-		if region == "" || shrRaw == "" {
-			errorCount++
-			continue
-		}
-
-		if i < 5 {
-			reportLines = append(reportLines, fmt.Sprintf("Row %d debug - Region: '%s', SHR: '%s'", i+1, region, shrRaw))
-		}
-
-		msg, _, _ := p.parseSHR(shrRaw, region)
-
-		if idepRaw != "" {
-		}
-		if iarrRaw != "" {
-			ata := p.parseATAFromIARR(iarrRaw)
-			if ata != "" {
-				msg.ATA = ata
-			}
-		}
-
-		key := msg.SID + msg.DOF + msg.ATD
-		if _, exists := seen[key]; exists {
-			reportLines = append(reportLines, fmt.Sprintf("Row %d duplicate: %s", i+1, key))
-			errorCount++
-			continue
-		}
-		seen[key] = struct{}{}
-		if msg.SID == "" || msg.DepCoords == "" || msg.ATA == "" {
-			errorCount++
-			continue
-		}
-		err = p.repo.SaveMessage(context.Background(), &msg)
+	for _, sheet := range f.GetSheetList() { // проходим по всем листам
+		rows, err := f.GetRows(sheet)
 		if err != nil {
-			slog.Error("error saving message:", err.Error())
-			errorCount++
-
+			log.Printf("Error reading rows from sheet %s in file %s: %v", sheet, filename, err)
+			errorCount += 1
 			continue
 		}
-		validCount++
+		fmt.Println(sheet)
+		for i, row := range rows {
+			if len(row) < 2 {
+				errorCount++
+				continue
+			}
+
+			region := p.cleanString(row[0])
+			shrRaw := p.cleanString(row[1])
+			iarrRaw := ""
+			if len(row) > 3 {
+				iarrRaw = p.cleanString(row[3])
+			}
+
+			if region == "" || shrRaw == "" {
+				errorCount++
+				continue
+			}
+
+			if i < 5 {
+				reportLines = append(reportLines, fmt.Sprintf("Sheet %s Row %d debug - Region: '%s', SHR: '%s'", sheet, i+1, region, shrRaw))
+			}
+
+			msg, _, _ := p.parseSHR(shrRaw, region)
+
+			if iarrRaw != "" {
+				ata := p.parseATAFromIARR(iarrRaw)
+				if ata != "" {
+					msg.ATA = ata
+				}
+			}
+
+			key := msg.SID + msg.DOF + msg.ATD
+			if _, exists := seen[key]; exists {
+				reportLines = append(reportLines, fmt.Sprintf("Sheet %s Row %d duplicate: %s", sheet, i+1, key))
+				errorCount++
+				continue
+			}
+			seen[key] = struct{}{}
+
+			if msg.SID == "" || msg.DepCoords == "" || msg.ATA == "" {
+				errorCount++
+				continue
+			}
+
+			err = p.repo.SaveMessage(ctx, &msg, fileID)
+			if err != nil {
+				slog.Error("error saving message:", err.Error())
+				errorCount++
+				continue
+			}
+			validCount++
+		}
 	}
 
 	return validCount, errorCount, nil
