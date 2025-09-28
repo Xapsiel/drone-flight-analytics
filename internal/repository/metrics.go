@@ -11,6 +11,46 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 )
 
+func (r *Repository) GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error) {
+	query := `
+				SELECT 
+					region_code,region_name,
+					total_flight,avg_duration_minutes,
+					total_distance_km,peak_load,
+					avg_daily_flights,median_daily_flights,
+					monthly_growth,flight_density,
+					morning_flights,day_flights,
+					evening_flights,night_flights,
+					zero_flight_days,date
+				FROM flight_metrics
+				WHERE region_code = $1 AND date = $2
+			 `
+	res := model.Metrics{}
+	jsonDate := []byte{}
+	row := r.db.QueryRow(ctx, query, id, year)
+	err := row.Scan(
+		&res.RegionId, &res.RegionName,
+		&res.TotalFlight, &res.AvgDurationMinutes,
+		&res.TotalDistance, &res.PeakLoad,
+		&res.AvgDailyFlights, &res.MedianDailyFlights,
+		&jsonDate, &res.FlightDensity,
+		&res.MorningFlights, &res.DayFlights,
+		&res.EveningFlights, &res.NightFlights,
+		&res.ZeroFlightDays, &res.Year,
+	)
+	if err != nil {
+		slog.Error("error with scan metrics: %v", err)
+		return res, err
+	}
+	err = json.Unmarshal(jsonDate, &res.MonthlyGrowth)
+	if err != nil {
+		slog.Error("error with unmarshal metrics: %v", err)
+		return res, err
+	}
+	return res, nil
+
+}
+
 func (r *Repository) TotalFlightAndAVGDuration(ctx context.Context, regID int, year int) ([]struct {
 	RegionCode         int
 	RegionName         string
