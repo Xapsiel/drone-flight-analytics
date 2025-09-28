@@ -22,11 +22,10 @@ func (r *Router) GetMetrics(ctx *fiber.Ctx) error {
 	}
 	metrics, err := r.repo.GetMetrics(context.Background(), regID, year)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		slog.Error("failed to get metrics", "reg_id", regID, "year", year, "error", err)
+		return ctx.Status(fiber.StatusInternalServerError).JSON(r.NewErrorResponse(fiber.StatusInternalServerError, "Ошибка при получении метрик"))
 	}
-	return ctx.JSON(fiber.Map{
-		"metrics": metrics,
-	})
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(metrics, ""))
 }
 func (r *Router) GetAllMetrics(ctx *fiber.Ctx) error {
 	year, err := strconv.Atoi(ctx.Query("year"))
@@ -38,13 +37,11 @@ func (r *Router) GetAllMetrics(ctx *fiber.Ctx) error {
 	for _, regID := range reg {
 		m, err := r.repo.GetMetrics(context.Background(), *regID.Gid, year)
 		if err != nil {
-			slog.Info("error with getting metrics: %v", err)
+			slog.Error("failed to get metrics for region", "region_id", *regID.Gid, "year", year, "error", err)
 			continue
 		}
 		metrics = append(metrics, &m)
 	}
-	return ctx.JSON(fiber.Map{
-		"metrics": metrics,
-	})
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(metrics, ""))
 
 }

@@ -2,15 +2,15 @@ package httpv1
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func (r *Router) GenerateAuthURLHandler(ctx *fiber.Ctx) error {
-
-	return ctx.JSON(fiber.Map{
-		"res": r.service.UserService.GetAuthURL("a"),
-	})
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(fiber.Map{
+		"auth_url": r.service.UserService.GetAuthURL("a"),
+	}, ""))
 }
 
 func (r *Router) RedirectAuthURLHandler(ctx *fiber.Ctx) error {
@@ -22,6 +22,10 @@ func (r *Router) RedirectAuthURLHandler(ctx *fiber.Ctx) error {
 	fmt.Println("session_state:", session_state)
 	fmt.Println("iss:", iss)
 	fmt.Println("code:", code)
-	r.service.UserService.ExchangeCode(code)
-	return ctx.JSON(fiber.Map{})
+	_, err := r.service.UserService.ExchangeCode(code)
+	if err != nil {
+		slog.Error("failed to exchange auth code", "error", err)
+		return ctx.Status(fiber.StatusInternalServerError).JSON(r.NewErrorResponse(fiber.StatusInternalServerError, "Ошибка авторизации"))
+	}
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(fiber.Map{}, ""))
 }

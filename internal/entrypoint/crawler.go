@@ -17,17 +17,16 @@ import (
 func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
-		return err
+		slog.Error("failed to read uploaded file", "error", err)
+		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "Ошибка загрузки файла"))
 	}
 	filename := file.Filename
 	if filename == "" || !strings.HasSuffix(filename, ".xlsx") {
-		return ctx.Status(400).JSON(fiber.Map{
-			"success": false,
-		})
+		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "invalid file extension"))
 	}
 	authorID := ctx.FormValue("authorID")
 	if authorID == "" {
-		return fmt.Errorf("authorID is required")
+		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "Отсутствует authorID"))
 	}
 
 	go func(file *multipart.FileHeader) {
@@ -60,7 +59,11 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 			slog.Error(fmt.Sprintf("error saving file: %v", err))
 		}
 
-		validCount, errorCount, err := r.service.ParserService.ProcessXLSX(context.Background(), f, authorID, file.Filename, file_id)
+		validCount, errorCount, parseErr := r.service.ParserService.ProcessXLSX(context.Background(), f, authorID, file.Filename, file_id)
+		if parseErr != nil {
+			slog.Error("failed to parse xlsx", "filename", filename, "error", parseErr)
+			return
+		}
 		mf.Status = "parsed"
 		_, err = r.repo.SaveFileInfo(context.Background(), mf, validCount, errorCount)
 		if err != nil {
@@ -75,10 +78,10 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 		slog.Info(fmt.Sprintf("successfully processed file: %v", mf.Filename))
 
 	}(file)
-	return ctx.JSON(fiber.Map{
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(fiber.Map{
 		"message":  "Файл успешно обработан",
 		"authorID": authorID,
 		"filename": file.Filename,
 		"size":     file.Size,
-	})
+	}, ""))
 }

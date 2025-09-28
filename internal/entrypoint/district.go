@@ -2,6 +2,7 @@ package httpv1
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -12,30 +13,17 @@ func (r *Router) DistrictGeoJSONHandler(ctx *fiber.Ctx) error {
 	case "":
 		res, err := r.repo.GetAllDistrictsGeoJSONHandler(context.Background())
 		if err != nil {
-			return ctx.JSON(fiber.Map{
-				"code": fiber.StatusInternalServerError,
-				"msg":  err.Error(),
-			})
+			slog.Error("failed to get districts geojson", "error", err)
+			return ctx.Status(fiber.StatusInternalServerError).JSON(r.NewErrorResponse(fiber.StatusInternalServerError, "Ошибка при получении данных по районам"))
 		}
-		return ctx.JSON(fiber.Map{
-			"code": fiber.StatusOK,
-			"data": res,
-		})
+		return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(res, ""))
 	default:
 		res, err := r.repo.GetDistrictGeoJSON(context.Background(), name)
 		if err != nil {
-			return ctx.JSON(fiber.Map{
-				"code": fiber.StatusInternalServerError,
-				"msg":  err.Error(),
-			})
+			slog.Error("failed to get district geojson", "name", name, "error", err)
+			return ctx.Status(fiber.StatusInternalServerError).JSON(r.NewErrorResponse(fiber.StatusInternalServerError, "Ошибка при получении данных по району"))
 		}
-		return ctx.JSON(fiber.Map{
-			"code": fiber.StatusOK,
-			"data": res,
-		})
+		return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(res, ""))
 
 	}
-	return ctx.JSON(fiber.Map{
-		"code": fiber.StatusOK,
-	})
 }
