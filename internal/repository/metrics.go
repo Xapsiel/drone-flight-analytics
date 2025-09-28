@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -40,6 +41,9 @@ func (r *Repository) GetMetrics(ctx context.Context, id int, year int) (model.Me
 		&res.ZeroFlightDays, &res.Year,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, err
+		}
 		slog.Error("error with scan metrics: %v", err)
 		return res, err
 	}

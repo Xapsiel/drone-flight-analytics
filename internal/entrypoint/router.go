@@ -21,7 +21,6 @@ type Repository interface {
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
-	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
 	GetFile(ctx context.Context, id int) (model.File, error)
 }
 type Router struct {
@@ -55,7 +54,6 @@ func (r *Router) Routes(app fiber.Router) {
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
 	}))
-
 	app.Static("assets", "web/assets")
 	// Раздача статических тестовых данных (.data)
 	app.Static(".data", ".data")
@@ -72,15 +70,13 @@ func (r *Router) Routes(app fiber.Router) {
 	}
 	district.Get("/", r.DistrictGeoJSONHandler)
 
-
 	user := app.Group("/user")
-	user.Use()
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
 	user.Get("/me", r.GetCurrentUserHandler)
 	user.Post("/logout", r.LogoutHandler)
 	user.Post("/refresh", r.RefreshTokenHandler)
-
+	app.Get("/auth/callback", r.AuthCallbackHandler)
 	// Эндпоинт для обработки callback от фронтенда
 	app.Get("/auth/callback", r.AuthCallbackHandler)
 

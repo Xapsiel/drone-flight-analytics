@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/gofiber/fiber/v2"
+	fiberSwagger "github.com/gofiber/swagger"
+
 	_ "github.com/Xapsiel/bpla_dashboard/docs"
 	"github.com/Xapsiel/bpla_dashboard/internal/config"
 	httpv1 "github.com/Xapsiel/bpla_dashboard/internal/entrypoint"
 	"github.com/Xapsiel/bpla_dashboard/internal/repository"
 	"github.com/Xapsiel/bpla_dashboard/internal/service"
-	"github.com/gofiber/fiber/v2"
-	fiberSwagger "github.com/gofiber/swagger"
 )
 
 func InitLogger() *slog.Logger {
@@ -58,7 +59,6 @@ func main() {
 		Service:      &service,
 		IsProduction: cfg.IsProduction,
 	})
-
 	router.Routes(app)
 	log.Fatal(app.Listen(":" + cfg.HostConfig.Port))
 }
