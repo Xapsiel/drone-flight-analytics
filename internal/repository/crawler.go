@@ -85,3 +85,22 @@ func (r *Repository) SaveFileInfo(ctx context.Context, mf model.File, valid_coun
 	}
 	return id, nil
 }
+
+func (r *Repository) GetFile(background context.Context, id int) (model.File, error) {
+	query := `
+				SELECT
+					user_id,filename, size, valid_count, error_count, metadata, status
+				FROM files
+					WHERE id = $1;
+			 `
+	row := r.db.QueryRow(background, query, id)
+	var f model.File
+	err := row.Scan(
+		&f.AuthorID, &f.Filename, &f.Size, &f.ValidCount, &f.ErrorCount, &f.Metadata, &f.Status,
+	)
+	if err != nil {
+		slog.Error("GetFile", "query", query, "err", err)
+		return f, err
+	}
+	return f, nil
+}

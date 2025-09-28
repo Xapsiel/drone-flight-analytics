@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type Metrics struct {
 	RegionId           int
 	RegionName         string
@@ -14,7 +16,7 @@ type Metrics struct {
 	FlightDensity      float64
 	AvgDailyFlights    float64
 	MedianDailyFlights float64
-	ZeroFlightDays     int
+	ZeroFlightDays     []time.Time
 	Year               int
 	TotalDistance      float64
 }

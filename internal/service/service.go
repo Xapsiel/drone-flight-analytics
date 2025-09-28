@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/config"
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
@@ -48,7 +49,7 @@ type Repository interface {
 	GetZeroFlightDays(ctx context.Context, regID int, year int) ([]struct {
 		RegionCode     int
 		RegionName     string
-		ZeroFlightDays int
+		ZeroFlightDays []time.Time
 	}, error)
 	GetTotalDistance(ctx context.Context, regID int, year int) ([]struct {
 		RegionCode      int
@@ -62,7 +63,7 @@ type Repository interface {
 	GetRussiaMonthlyGrowth(ctx context.Context, year int) (map[int]float64, error)
 	GetFlightDensityAllRussia(ctx context.Context, year int) (float64, error)
 	GetFlightTimesAllRussia(ctx context.Context, year int) (int, int, int, int, error)
-	GetZeroFlightDaysAllRussia(ctx context.Context, year int) (int, error)
+	GetZeroFlightDaysAllRussia(ctx context.Context, year int) ([]time.Time, error)
 	GetTotalDistanceAllRussia(ctx context.Context, year int) (float64, error)
 
 	GetRegions(ctx context.Context) []model.District
