@@ -55,23 +55,23 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Get("/swagger/*", fiberSwagger.New())
 
 	app.Get("/dashboard", monitor.New())
-	district := app.Group("/district")
-	if r.isProduction {
-		district.Use(r.RoleMiddleware("admin", "analytics"))
-	}
-	district.Get("/", r.DistrictGeoJSONHandler)
+	//district := app.Group("/district")
+	//district.Get("/", r.DistrictGeoJSONHandler)
 	user := app.Group("/user")
+	user.Use()
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
 
 	crawler := app.Group("/crawler")
+	crawler.Use(r.RoleMiddleware("admin"))
 	crawler.Post("/upload", r.UploadFileHandler)
 	crawler.Get("/status", r.CheckFileStatus)
+
 	metrics := app.Group("/metrics")
+	metrics.Use(r.RoleMiddleware("admin", "analytics"))
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
 
-	// Vector tiles endpoint
 	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 }
 
