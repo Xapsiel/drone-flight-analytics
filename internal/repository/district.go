@@ -10,13 +10,13 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 )
 
-func (r *Repository) GetDistrictGeoJSON(ctx context.Context, name string) (*model.DistrictGeoJSON, error) {
+func (r *Repository) GetDistrictGeoJSON(ctx context.Context, id int) (*model.DistrictGeoJSON, error) {
 	query := `
 				SELECT 
 				    gid, name, name_ru, 
 				    name_en, boundary, admin_leve, 
 				    timezone,ST_AsGeoJSON(geom) as geom   FROM district_shapes
-				WHERE name=$1
+				WHERE gid=$1
 			 `
 	result := &model.DistrictGeoJSON{
 		District: model.District{},
@@ -24,7 +24,7 @@ func (r *Repository) GetDistrictGeoJSON(ctx context.Context, name string) (*mode
 	}
 	var geomJSON string
 
-	err := r.db.QueryRow(ctx, query, name).Scan(
+	err := r.db.QueryRow(ctx, query, id).Scan(
 		&result.District.Gid, &result.District.Name,
 		&result.District.NameRU, &result.District.NameEn,
 		&result.District.Boundary, &result.District.AdminLevel,
@@ -39,9 +39,9 @@ func (r *Repository) GetDistrictGeoJSON(ctx context.Context, name string) (*mode
 		slog.Error(
 			"Failed to unmarshal geometry JSON",
 			"error", err,
-			"district", name,
+			"district", id,
 		)
-		return nil, fmt.Errorf("failed to unmarshal geometry JSON for district %s: %w", name, err)
+		return nil, fmt.Errorf("failed to unmarshal geometry JSON for district %s: %w", id, err)
 	}
 
 	feature := geojson.NewFeature(geometry.Geometry())
@@ -49,19 +49,19 @@ func (r *Repository) GetDistrictGeoJSON(ctx context.Context, name string) (*mode
 		feature.Properties["district"] = result.District.Name
 	}
 	if result.District.NameRU != nil {
-		feature.Properties["name_ru"] = name
+		feature.Properties["name_ru"] = id
 	}
 	if result.District.NameEn != nil {
-		feature.Properties["name_en"] = name
+		feature.Properties["name_en"] = id
 	}
 	if result.District.Boundary != nil {
-		feature.Properties["boundary"] = name
+		feature.Properties["boundary"] = id
 	}
 	if result.District.AdminLevel != nil {
-		feature.Properties["admin_level"] = name
+		feature.Properties["admin_level"] = id
 	}
 	if result.District.TimeZone != nil {
-		feature.Properties["timezone"] = name
+		feature.Properties["timezone"] = id
 	}
 	result.Features.Features = append(result.Features.Features, feature)
 	return result, nil

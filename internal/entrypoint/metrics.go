@@ -10,6 +10,17 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 )
 
+// GetMetrics
+// @Summary Получить метрики по региону
+// @Description Возвращает метрики для указанного региона и года
+// @Tags metrics
+// @Accept json
+// @Produce json
+// @Param reg_id query int false "Код региона"
+// @Param year query int false "Год"
+// @Success 200 {object} httpv1.APIResponse
+// @Failure 500 {object} httpv1.APIResponse
+// @Router /metrics [get]
 func (r *Router) GetMetrics(ctx *fiber.Ctx) error {
 
 	regID, err := strconv.Atoi(ctx.Query("reg_id"))
@@ -27,6 +38,17 @@ func (r *Router) GetMetrics(ctx *fiber.Ctx) error {
 	}
 	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(metrics, ""))
 }
+
+// GetAllMetrics
+// @Summary Получить метрики по всем регионам
+// @Description Возвращает метрики для каждого региона за указанный год
+// @Tags metrics
+// @Accept json
+// @Produce json
+// @Param year query int false "Год"
+// @Success 200 {object} httpv1.APIResponse
+// @Failure 500 {object} httpv1.APIResponse
+// @Router /metrics/all [get]
 func (r *Router) GetAllMetrics(ctx *fiber.Ctx) error {
 	year, err := strconv.Atoi(ctx.Query("year"))
 	if err != nil {

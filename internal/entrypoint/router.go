@@ -7,13 +7,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	fiberSwagger "github.com/gofiber/swagger"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 	"github.com/Xapsiel/bpla_dashboard/internal/service"
 )
 
 type Repository interface {
-	GetDistrictGeoJSON(ctx context.Context, name string) (*model.DistrictGeoJSON, error)
+	GetDistrictGeoJSON(ctx context.Context, id int) (*model.DistrictGeoJSON, error)
 	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
@@ -48,6 +49,8 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Use(logger.New(logger.Config{
 		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 	}))
+	app.Get("/swagger/*", fiberSwagger.New())
+
 	app.Get("/dashboard", monitor.New())
 	district := app.Group("/district")
 	if r.isProduction {
@@ -82,6 +85,15 @@ func (r *Router) NewErrorPage(err error) *model.Page {
 	}
 }
 
+// GetTopByHandler
+// @Summary Топ регионов по критерию
+// @Description Возвращает пустой ответ (заглушка) в текущей реализации
+// @Tags district
+// @Accept json
+// @Produce json
+// @Param criteria query string false "Критерий" Enums(flight_frequency,avg_flight_time,flight_count,flight_duration)
+// @Success 200 {object} map[string]interface{}
+// @Router /district/top [get]
 func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
 	filter := ctx.Query("criteria", "none")
 	if filter == "" {

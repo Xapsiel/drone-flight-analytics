@@ -14,6 +14,18 @@ import (
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 )
 
+// UploadFileHandler
+// @Summary Загрузить XLSX с данными
+// @Description Принимает файл .xlsx, запускает парсинг и обновление метрик
+// @Tags crawler
+// @Accept mpfd
+// @Produce json
+// @Param file formData file true "Файл XLSX"
+// @Param authorID formData string true "Идентификатор автора"
+// @Success 200 {object} httpv1.APIResponse
+// @Failure 400 {object} httpv1.APIResponse
+// @Failure 500 {object} httpv1.APIResponse
+// @Router /crawler/upload [post]
 func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {

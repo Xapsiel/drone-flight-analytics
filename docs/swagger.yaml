@@ -1,0 +1,229 @@
+basePath: /
+definitions:
+  httpv1.APIError:
+    properties:
+      code:
+        description: Код ошибки (например, 400, 500)
+        type: integer
+      message:
+        description: Текст ошибки
+        type: string
+    type: object
+  httpv1.APIResponse:
+    properties:
+      data:
+        description: Данные ответа
+      error:
+        allOf:
+        - $ref: '#/definitions/httpv1.APIError'
+        description: Ошибка, если есть
+      message:
+        description: Дополнительное сообщение
+        type: string
+      status:
+        description: Статус (success, error)
+        type: string
+      timestamp:
+        description: Время ответа
+        type: string
+    type: object
+host: 127.0.0.1:8080
+info:
+  contact: {}
+  description: API для дашборда БПЛА
+  title: BPLA Dashboard API
+  version: "1.0"
+paths:
+  /crawler/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Принимает файл .xlsx, запускает парсинг и обновление метрик
+      parameters:
+      - description: Файл XLSX
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Идентификатор автора
+        in: formData
+        name: authorID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Загрузить XLSX с данными
+      tags:
+      - crawler
+  /district:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает GeoJSON по всем районам или конкретному району при переданном
+        параметре id
+      parameters:
+      - description: ID региона
+        in: query
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Получить GeoJSON районов
+      tags:
+      - district
+  /district/top:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает пустой ответ (заглушка) в текущей реализации
+      parameters:
+      - description: Критерий
+        enum:
+        - flight_frequency
+        - avg_flight_time
+        - flight_count
+        - flight_duration
+        in: query
+        name: criteria
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Топ регионов по критерию
+      tags:
+      - district
+  /metrics:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает метрики для указанного региона и года
+      parameters:
+      - description: Код региона
+        in: query
+        name: reg_id
+        type: integer
+      - description: Год
+        in: query
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Получить метрики по региону
+      tags:
+      - metrics
+  /metrics/all:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает метрики для каждого региона за указанный год
+      parameters:
+      - description: Год
+        in: query
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Получить метрики по всем регионам
+      tags:
+      - metrics
+  /user/gen_auth_url:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает URL для авторизации через провайдер OIDC
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Сгенерировать ссылку авторизации
+      tags:
+      - user
+  /user/redirect:
+    get:
+      consumes:
+      - application/json
+      description: Обменивает код авторизации на токены
+      parameters:
+      - description: State
+        in: query
+        name: state
+        type: string
+      - description: Session state
+        in: query
+        name: session_state
+        type: string
+      - description: Issuer
+        in: query
+        name: iss
+        type: string
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Обработать редирект от OIDC
+      tags:
+      - user
+schemes:
+- http
+- https
+swagger: "2.0"
