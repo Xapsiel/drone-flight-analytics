@@ -171,6 +171,39 @@ paths:
       summary: Получить метрики по всем регионам
       tags:
       - metrics
+  /tiles/{z}/{x}/{y}.mvt:
+    get:
+      description: Возвращает тайл районов в формате Mapbox Vector Tile (protobuf)
+      parameters:
+      - description: Zoom
+        in: path
+        name: z
+        required: true
+        type: integer
+      - description: Tile X
+        in: path
+        name: x
+        required: true
+        type: integer
+      - description: Tile Y
+        in: path
+        name: "y"
+        required: true
+        type: integer
+      produces:
+      - application/x-protobuf
+      responses:
+        "200":
+          description: binary mvt
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpv1.APIResponse'
+      summary: Векторный тайл MVT по z/x/y
+      tags:
+      - district
   /user/gen_auth_url:
     get:
       consumes:

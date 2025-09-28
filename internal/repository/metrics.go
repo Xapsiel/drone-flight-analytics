@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -522,52 +523,61 @@ func (r *Repository) GetFlightTimes(ctx context.Context, regID int, year int) ([
 func (r *Repository) GetZeroFlightDays(ctx context.Context, regID int, year int) ([]struct {
 	RegionCode     int
 	RegionName     string
-	ZeroFlightDays int
+	ZeroFlightDays []time.Time
 }, error) {
 	query := `
-		WITH flight_days AS (
+		WITH all_dates AS (
+			SELECT generate_series(
+				DATE_TRUNC('year', make_date($1::INTEGER, 1, 1))::date,
+				DATE_TRUNC('year', make_date($1::INTEGER, 1, 1))::date + INTERVAL '1 year - 1 day',
+				'1 day'
+			)::date AS dof
+		),
+		flight_days AS (
 			SELECT
 				m.region AS region_code,
 				ds.name AS region_name,
-				COUNT(DISTINCT m.dof) AS flight_days
+				m.dof
 			FROM messages m
 			JOIN district_shapes ds ON m.region = ds.gid
 			WHERE m.ata IS NOT NULL
+				AND EXTRACT(YEAR FROM m.dof) = $1
 	`
-	args := []interface{}{}
+	args := []interface{}{year}
 	if regID != 0 {
-		query += " AND m.region = $1"
+		query += " AND m.region = $2"
 		args = append(args, regID)
 	}
-	if year != 0 {
-		query += " AND EXTRACT(YEAR FROM m.dof) = $" + fmt.Sprintf("%d", len(args)+1)
-		args = append(args, year)
-	}
 	query += `
-			GROUP BY m.region, ds.name
+			GROUP BY m.region, ds.name, m.dof
 		),
-		total_days AS (
+		zero_flight_days AS (
 			SELECT
 				ds.gid AS region_code,
 				ds.name AS region_name,
-				365 AS total_days_in_year
+				ARRAY_AGG(ad.dof) AS zero_flight_days
 			FROM district_shapes ds
+			CROSS JOIN all_dates ad
+			LEFT JOIN flight_days fd
+				ON ds.gid = fd.region_code
+				AND ad.dof = fd.dof
+			WHERE fd.dof IS NULL
+	`
+	if regID != 0 {
+		query += " AND ds.gid = $2"
+	}
+	query += `
+			GROUP BY ds.gid, ds.name
+			HAVING COUNT(fd.dof) < COUNT(ad.dof)
 		)
 		SELECT
-			td.region_code,
-			td.region_name,
-			td.total_days_in_year - COALESCE(fd.flight_days, 0) AS zero_flight_days
-		FROM total_days td
-		LEFT JOIN flight_days fd ON td.region_code = fd.region_code AND td.region_name = fd.region_name
+			region_code,
+			region_name,
+			zero_flight_days
+		FROM zero_flight_days
 	`
 
-	var rows pgx.Rows
-	var err error
-	if regID != 0 {
-		rows, err = r.db.Query(ctx, query, regID, year)
-	} else {
-		rows, err = r.db.Query(ctx, query, year)
-	}
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query zero flight days: %w", err)
 	}
@@ -576,29 +586,27 @@ func (r *Repository) GetZeroFlightDays(ctx context.Context, regID int, year int)
 	var results []struct {
 		RegionCode     int
 		RegionName     string
-		ZeroFlightDays int
+		ZeroFlightDays []time.Time
 	}
 	for rows.Next() {
 		var r struct {
 			RegionCode     int
 			RegionName     string
-			ZeroFlightDays int
+			ZeroFlightDays []time.Time
 		}
-		if err := rows.Scan(&r.RegionCode, &r.RegionName, &r.ZeroFlightDays); err != nil {
+		var dates []time.Time
+		if err := rows.Scan(&r.RegionCode, &r.RegionName, &dates); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		if regID != 0 && r.RegionCode == regID {
-			results = append(results, r)
-		} else if regID == 0 {
-			results = append(results, r)
-
-		}
+		r.ZeroFlightDays = dates
+		results = append(results, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("row iteration error: %w", err)
 	}
 	return results, nil
 }
+
 func (r *Repository) GetTotalDistance(ctx context.Context, regID int, year int) ([]struct {
 	RegionCode      int
 	RegionName      string
@@ -930,23 +938,35 @@ func (r *Repository) GetFlightTimesAllRussia(ctx context.Context, year int) (int
 	}
 	return morning, day, evening, night, nil
 }
-
-func (r *Repository) GetZeroFlightDaysAllRussia(ctx context.Context, year int) (int, error) {
-	query := `
-		SELECT
-			365 - COUNT(DISTINCT m.dof) AS zero_flight_days
-		FROM messages m
-	`
-	args := []interface{}{}
-	if year != 0 {
-		query += " WHERE EXTRACT(YEAR FROM m.dof) = $1"
-		args = append(args, year)
+func (r *Repository) GetZeroFlightDaysAllRussia(ctx context.Context, year int) ([]time.Time, error) {
+	if year == 0 {
+		return nil, fmt.Errorf("year must be specified")
 	}
 
-	row := r.db.QueryRow(ctx, query, args...)
-	var zeroDays int
+	query := `
+        WITH flight_days AS (
+            SELECT DISTINCT m.dof AS flight_date
+            FROM messages m
+            WHERE m.ata IS NOT NULL
+              AND EXTRACT(YEAR FROM m.dof) = $1
+        ),
+        all_days AS (
+            SELECT generate_series(
+                make_date($1::INTEGER, 1, 1),
+                make_date($1::INTEGER, 1, 1) + INTERVAL '1 year' - INTERVAL '1 day',
+                INTERVAL '1 day'
+            )::date AS day_of_year
+        )
+        SELECT COALESCE(ARRAY_AGG(ad.day_of_year ORDER BY ad.day_of_year), '{}') AS zero_flight_days
+        FROM all_days ad
+        LEFT JOIN flight_days fd ON ad.day_of_year = fd.flight_date
+        WHERE fd.flight_date IS NULL
+    `
+
+	row := r.db.QueryRow(ctx, query, year)
+	var zeroDays []time.Time
 	if err := row.Scan(&zeroDays); err != nil {
-		return 0, fmt.Errorf("failed to query zero flight days: %w", err)
+		return nil, fmt.Errorf("failed to query zero flight days: %w", err)
 	}
 	return zeroDays, nil
 }

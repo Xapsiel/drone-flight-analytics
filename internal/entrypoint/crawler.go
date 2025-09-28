@@ -40,8 +40,8 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 	if authorID == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "Отсутствует authorID"))
 	}
-
-	go func(file *multipart.FileHeader) {
+	fileChan := make(chan int)
+	go func(file *multipart.FileHeader, ch chan int) {
 
 		jsonData, err := json.Marshal(file.Header)
 		if err != nil {
@@ -67,6 +67,7 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 			return
 		}
 		file_id, err := r.repo.SaveFileInfo(context.Background(), mf, 0, 0)
+		ch <- file_id
 		if err != nil {
 			slog.Error(fmt.Sprintf("error saving file: %v", err))
 		}
@@ -89,11 +90,19 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 		}
 		slog.Info(fmt.Sprintf("successfully processed file: %v", mf.Filename))
 
-	}(file)
+	}(file, fileChan)
+	fileID := <-fileChan
 	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(fiber.Map{
 		"message":  "Файл успешно обработан",
 		"authorID": authorID,
 		"filename": file.Filename,
 		"size":     file.Size,
+		"file_id":  fileID,
 	}, ""))
+}
+
+func (r *Router) CheckFileStatus(ctx *fiber.Ctx) error {
+	fileID := ctx.Params("id")
+	f, err := r.repo.GetFile(context.Background(), fileID)
+
 }

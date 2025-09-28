@@ -221,6 +221,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/tiles/{z}/{x}/{y}.mvt": {
+            "get": {
+                "description": "Возвращает тайл районов в формате Mapbox Vector Tile (protobuf)",
+                "produces": [
+                    "application/x-protobuf"
+                ],
+                "tags": [
+                    "district"
+                ],
+                "summary": "Векторный тайл MVT по z/x/y",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Zoom",
+                        "name": "z",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tile X",
+                        "name": "x",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tile Y",
+                        "name": "y",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "binary mvt",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/user/gen_auth_url": {
             "get": {
                 "description": "Возвращает URL для авторизации через провайдер OIDC",

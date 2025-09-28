@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS flight_metrics(
     day_flights INTEGER,
     evening_flights INTEGER,
     night_flights INTEGER,
-    zero_flight_days INTEGER,
+    zero_flight_days DATE[],
     date int,
     UNIQUE (region_code,date)
 )

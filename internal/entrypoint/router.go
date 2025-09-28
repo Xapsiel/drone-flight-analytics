@@ -14,11 +14,13 @@ import (
 )
 
 type Repository interface {
-	GetDistrictGeoJSON(ctx context.Context, id int) (*model.DistrictGeoJSON, error)
-	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
+	GetDistrictGeoJSON(ctx context.Context, id int) ([]byte, error)
+	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]byte, error)
+	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
+	GetFile(background context.Context, id string) (model.File, error)
 }
 type Router struct {
 	repo         Repository
@@ -45,7 +47,8 @@ func New(cfg Config) *Router {
 
 func (r *Router) Routes(app fiber.Router) {
 	app.Static("assets", "web/assets")
-	app.Static("", "web/assets")
+	// Раздача статических тестовых данных (.data)
+	app.Static(".data", ".data")
 	app.Use(logger.New(logger.Config{
 		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 	}))
@@ -64,10 +67,13 @@ func (r *Router) Routes(app fiber.Router) {
 
 	crawler := app.Group("/crawler")
 	crawler.Post("/upload", r.UploadFileHandler)
-
+	crawler.Get("/status", r.CheckFileStatus)
 	metrics := app.Group("/metrics")
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
+
+	// Vector tiles endpoint
+	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 }
 
 func (r *Router) NewPage() *model.Page {
@@ -83,27 +89,4 @@ func (r *Router) NewErrorPage(err error) *model.Page {
 		Domain: r.domain,
 		Year:   time.Now().Year(),
 	}
-}
-
-// GetTopByHandler
-// @Summary Топ регионов по критерию
-// @Description Возвращает пустой ответ (заглушка) в текущей реализации
-// @Tags district
-// @Accept json
-// @Produce json
-// @Param criteria query string false "Критерий" Enums(flight_frequency,avg_flight_time,flight_count,flight_duration)
-// @Success 200 {object} map[string]interface{}
-// @Router /district/top [get]
-func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
-	filter := ctx.Query("criteria", "none")
-	if filter == "" {
-		filter = "flight_frequency"
-	}
-	switch filter {
-	case "flight_frequency":
-	case "avg_flight_time":
-	case "flight_count":
-	case "flight_duration":
-	}
-	return ctx.JSON(fiber.Map{})
 }
