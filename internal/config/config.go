@@ -34,6 +34,7 @@ type OidcConfig struct {
 	KeycloakURL    string   `yaml:"keycloak_url"`
 	KeycloakRealm  string   `yaml:"keycloak_realm"`
 	KeycloakSecret string   `yaml:"keycloak_secret"`
+	JWTSecret      string   `yaml:"jwt_secret"`
 }
 
 func New(path string) (*Config, error) {

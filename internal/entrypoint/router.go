@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 
@@ -43,6 +44,14 @@ func New(cfg Config) *Router {
 }
 
 func (r *Router) Routes(app fiber.Router) {
+	// Настройка CORS для фронтенда
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173,http://127.0.0.1:5173",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		AllowCredentials: true,
+	}))
+
 	app.Static("assets", "web/assets")
 	app.Static("", "web/assets")
 	app.Use(logger.New(logger.Config{
@@ -58,6 +67,12 @@ func (r *Router) Routes(app fiber.Router) {
 	user := app.Group("/user")
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
+	user.Get("/me", r.GetCurrentUserHandler)
+	user.Post("/logout", r.LogoutHandler)
+	user.Post("/refresh", r.RefreshTokenHandler)
+
+	// Эндпоинт для обработки callback от фронтенда
+	app.Get("/auth/callback", r.AuthCallbackHandler)
 
 	crawler := app.Group("/crawler")
 	crawler.Post("/upload", r.UploadFileHandler)
@@ -65,6 +80,7 @@ func (r *Router) Routes(app fiber.Router) {
 	metrics := app.Group("/metrics")
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
+	r.
 }
 
 func (r *Router) NewPage() *model.Page {

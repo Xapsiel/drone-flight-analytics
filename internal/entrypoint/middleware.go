@@ -16,7 +16,7 @@ func (r *Router) RoleMiddleware(allowedRoles ...string) func(c *fiber.Ctx) error
 		}
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		user, err := r.service.UserService.GetUserInfo("", tokenStr)
+		user, err := r.service.UserService.GetCurrentUser(tokenStr)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Unauthorized: " + err.Error(),
