@@ -19,6 +19,7 @@ type Repository interface {
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
+	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
 }
 type Router struct {
 	repo         Repository
@@ -58,12 +59,13 @@ func (r *Router) Routes(app fiber.Router) {
 		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 	}))
 	app.Get("/dashboard", monitor.New())
+	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 	district := app.Group("/district")
 	if r.isProduction {
 		district.Use(r.RoleMiddleware("admin", "analytics"))
 	}
 	district.Get("/", r.DistrictGeoJSONHandler)
-	district.Get("/top", r.GetTopByHandler)
+
 	user := app.Group("/user")
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
@@ -80,7 +82,7 @@ func (r *Router) Routes(app fiber.Router) {
 	metrics := app.Group("/metrics")
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
-	r.
+
 }
 
 func (r *Router) NewPage() *model.Page {
