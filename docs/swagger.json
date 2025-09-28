@@ -1,0 +1,394 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API для дашборда БПЛА",
+        "title": "BPLA Dashboard API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "127.0.0.1:8080",
+    "basePath": "/",
+    "paths": {
+        "/crawler/upload": {
+            "post": {
+                "description": "Принимает файл .xlsx, запускает парсинг и обновление метрик",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "crawler"
+                ],
+                "summary": "Загрузить XLSX с данными",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Файл XLSX",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Идентификатор автора",
+                        "name": "authorID",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/district": {
+            "get": {
+                "description": "Возвращает GeoJSON по всем районам или конкретному району при переданном параметре id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "district"
+                ],
+                "summary": "Получить GeoJSON районов",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID региона",
+                        "name": "id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/district/top": {
+            "get": {
+                "description": "Возвращает пустой ответ (заглушка) в текущей реализации",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "district"
+                ],
+                "summary": "Топ регионов по критерию",
+                "parameters": [
+                    {
+                        "enum": [
+                            "flight_frequency",
+                            "avg_flight_time",
+                            "flight_count",
+                            "flight_duration"
+                        ],
+                        "type": "string",
+                        "description": "Критерий",
+                        "name": "criteria",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics": {
+            "get": {
+                "description": "Возвращает метрики для указанного региона и года",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Получить метрики по региону",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Код региона",
+                        "name": "reg_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Год",
+                        "name": "year",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics/all": {
+            "get": {
+                "description": "Возвращает метрики для каждого региона за указанный год",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Получить метрики по всем регионам",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Год",
+                        "name": "year",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tiles/{z}/{x}/{y}.mvt": {
+            "get": {
+                "description": "Возвращает тайл районов в формате Mapbox Vector Tile (protobuf)",
+                "produces": [
+                    "application/x-protobuf"
+                ],
+                "tags": [
+                    "district"
+                ],
+                "summary": "Векторный тайл MVT по z/x/y",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Zoom",
+                        "name": "z",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tile X",
+                        "name": "x",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tile Y",
+                        "name": "y",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "binary mvt",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/gen_auth_url": {
+            "get": {
+                "description": "Возвращает URL для авторизации через провайдер OIDC",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Сгенерировать ссылку авторизации",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/redirect": {
+            "get": {
+                "description": "Обменивает код авторизации на токены",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Обработать редирект от OIDC",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "State",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session state",
+                        "name": "session_state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Issuer",
+                        "name": "iss",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Authorization code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpv1.APIResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "httpv1.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Код ошибки (например, 400, 500)",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "Текст ошибки",
+                    "type": "string"
+                }
+            }
+        },
+        "httpv1.APIResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Данные ответа"
+                },
+                "error": {
+                    "description": "Ошибка, если есть",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/httpv1.APIError"
+                        }
+                    ]
+                },
+                "message": {
+                    "description": "Дополнительное сообщение",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Статус (success, error)",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "Время ответа",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

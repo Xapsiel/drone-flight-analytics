@@ -16,7 +16,8 @@ type Metrics struct {
 	FlightDensity      float64
 	AvgDailyFlights    float64
 	MedianDailyFlights float64
-	ZeroFlightDays     time.Time
+
+	ZeroFlightDays     []time.Time
 	Year               int
 	TotalDistance      float64
 }

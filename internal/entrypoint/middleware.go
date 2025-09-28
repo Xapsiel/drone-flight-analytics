@@ -1,6 +1,7 @@
 package httpv1
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,17 +11,14 @@ func (r *Router) RoleMiddleware(allowedRoles ...string) func(c *fiber.Ctx) error
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized: missing token",
-			})
+			return c.Status(fiber.StatusUnauthorized).JSON(r.NewErrorResponse(fiber.StatusUnauthorized, "Unauthorized: missing token"))
 		}
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 		user, err := r.service.UserService.GetCurrentUser(tokenStr)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized: " + err.Error(),
-			})
+			slog.Error("failed to parse user token", "error", err)
+			return c.Status(fiber.StatusUnauthorized).JSON(r.NewErrorResponse(fiber.StatusUnauthorized, "Unauthorized: invalid token"))
 		}
 
 		hasRole := false
@@ -37,9 +35,7 @@ func (r *Router) RoleMiddleware(allowedRoles ...string) func(c *fiber.Ctx) error
 		}
 
 		if !hasRole {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Forbidden: insufficient role",
-			})
+			return c.Status(fiber.StatusForbidden).JSON(r.NewErrorResponse(fiber.StatusForbidden, "Forbidden: insufficient role"))
 		}
 
 		return c.Next()

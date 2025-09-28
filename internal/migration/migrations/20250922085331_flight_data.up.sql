@@ -23,7 +23,7 @@ CREATE TABLE  IF NOT EXISTS messages (
 
 CREATE TABLE If NOT EXISTS flight_coordinates(
                                                  id SERIAL PRIMARY KEY ,
-                                                 sid VARCHAR(100) REFERENCES messages(sid),
+                                                 sid VARCHAR(100) REFERENCES messages(sid) ON DELETE CASCADE ,
                                                  coordinate geography(POINT, 4326)
 );
 

@@ -15,7 +15,7 @@ type APIError struct {
 	Message string `json:"message"` // Текст ошибки
 }
 
-func NewSuccessResponse(data interface{}, message string) APIResponse {
+func (r *Router) NewSuccessResponse(data interface{}, message string) APIResponse {
 	return APIResponse{
 		Data:      data,
 		Error:     nil,
@@ -25,7 +25,7 @@ func NewSuccessResponse(data interface{}, message string) APIResponse {
 	}
 }
 
-func NewErrorResponse(code int, message string) APIResponse {
+func (r *Router) NewErrorResponse(code int, message string) APIResponse {
 	return APIResponse{
 		Data:      nil,
 		Error:     &APIError{Code: code, Message: message},

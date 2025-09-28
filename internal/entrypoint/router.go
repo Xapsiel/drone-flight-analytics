@@ -8,18 +8,21 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	fiberSwagger "github.com/gofiber/swagger"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
 	"github.com/Xapsiel/bpla_dashboard/internal/service"
 )
 
 type Repository interface {
-	GetDistrictGeoJSON(ctx context.Context, name string) (*model.DistrictGeoJSON, error)
-	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
+	GetDistrictGeoJSON(ctx context.Context, id int) ([]byte, error)
+	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]byte, error)
+	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
 	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
+	GetFile(ctx context.Context, id int) (model.File, error)
 }
 type Router struct {
 	repo         Repository
@@ -54,10 +57,13 @@ func (r *Router) Routes(app fiber.Router) {
 	}))
 
 	app.Static("assets", "web/assets")
-	app.Static("", "web/assets")
+	// Раздача статических тестовых данных (.data)
+	app.Static(".data", ".data")
 	app.Use(logger.New(logger.Config{
 		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 	}))
+	app.Get("/swagger/*", fiberSwagger.New())
+
 	app.Get("/dashboard", monitor.New())
 	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 	district := app.Group("/district")
@@ -66,7 +72,9 @@ func (r *Router) Routes(app fiber.Router) {
 	}
 	district.Get("/", r.DistrictGeoJSONHandler)
 
+
 	user := app.Group("/user")
+	user.Use()
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
 	user.Get("/me", r.GetCurrentUserHandler)
@@ -77,9 +85,12 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Get("/auth/callback", r.AuthCallbackHandler)
 
 	crawler := app.Group("/crawler")
+	crawler.Use(r.RoleMiddleware("admin"))
 	crawler.Post("/upload", r.UploadFileHandler)
+	crawler.Get("/status", r.CheckFileStatus)
 
 	metrics := app.Group("/metrics")
+	metrics.Use(r.RoleMiddleware("admin", "analytics"))
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
 
@@ -98,18 +109,4 @@ func (r *Router) NewErrorPage(err error) *model.Page {
 		Domain: r.domain,
 		Year:   time.Now().Year(),
 	}
-}
-
-func (r *Router) GetTopByHandler(ctx *fiber.Ctx) error {
-	filter := ctx.Query("criteria", "none")
-	if filter == "" {
-		filter = "flight_frequency"
-	}
-	switch filter {
-	case "flight_frequency":
-	case "avg_flight_time":
-	case "flight_count":
-	case "flight_duration":
-	}
-	return ctx.JSON(fiber.Map{})
 }
