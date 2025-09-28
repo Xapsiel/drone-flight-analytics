@@ -17,6 +17,7 @@ type Repository interface {
 	GetAllDistrictsGeoJSONHandler(ctx context.Context) ([]model.DistrictGeoJSON, error)
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
+	GetRegions(ctx context.Context) []model.District
 }
 type Router struct {
 	repo         Repository
@@ -63,6 +64,7 @@ func (r *Router) Routes(app fiber.Router) {
 
 	metrics := app.Group("/metrics")
 	metrics.Get("/", r.GetMetrics)
+	metrics.Get("/all", r.GetAllMetrics)
 }
 
 func (r *Router) NewPage() *model.Page {
