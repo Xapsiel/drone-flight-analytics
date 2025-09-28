@@ -1,14 +1,11 @@
-package main
+package service
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"math"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,15 +14,8 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/xuri/excelize/v2"
 
-	"github.com/Xapsiel/bpla_dashboard/internal/config"
 	"github.com/Xapsiel/bpla_dashboard/internal/model"
-	"github.com/Xapsiel/bpla_dashboard/internal/repository"
 )
-
-func InitLogger() *slog.Logger {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	return logger
-}
 
 var (
 	coordRe = regexp.MustCompile(`(\d{4,6})([NS])(\d{5,7})([EW])`) // ddmm(ss)Ndddmm(ss)E
@@ -33,88 +23,15 @@ var (
 	dateRe  = regexp.MustCompile(`^\d{6}$`)                        // ггммдд
 )
 
-type Repository interface {
-	SaveMessage(ctx context.Context, mes *model.ParsedMessage) error
+type ParserService struct {
+	repo Repository
 }
 
-func main() {
-	dataDir := flag.String("d", ".data", "data directory")
-	flag.Parse()
-
-	logger := InitLogger()
-	slog.SetDefault(logger)
-	configPath := flag.String("c", "config/config.yaml", "The path to the configuration file")
-	flag.Parse()
-
-	cfg, err := config.New(*configPath)
-	if err != nil {
-		slog.Error("unable to read config:", err.Error())
-		os.Exit(1)
-	}
-	db, err := repository.NewPostgresDB(cfg.DatabaseConfig)
-	if err != nil {
-		slog.Error("unable to connect to database:", err.Error())
-		os.Exit(1)
-	}
-	defer db.Close()
-	repo := repository.NewRepository(db)
-	fmt.Printf(*dataDir)
-	xlsxFiles, err := findXLSXFiles(*dataDir)
-	if err != nil {
-		log.Fatal("Error finding XLSX files:", err)
-	}
-
-	if len(xlsxFiles) == 0 {
-		log.Fatal("No XLSX files found in current directory")
-	}
-
-	fmt.Printf("Found %d XLSX files: %v\n", len(xlsxFiles), xlsxFiles)
-
-	totalMessages := 0
-	totalValid := 0
-	totalErrors := 0
-
-	for _, xlsxFile := range xlsxFiles {
-		fmt.Printf("\nProcessing file: %s\n", xlsxFile)
-
-		messages, validCount, errorCount := processXLSXFile(xlsxFile, repo)
-
-		totalMessages += len(messages)
-		totalValid += validCount
-		totalErrors += errorCount
-
-		fmt.Printf("File %s: %d messages processed (%d valid, %d with errors)\n",
-			xlsxFile, len(messages), validCount, errorCount)
-	}
-
-	// Общая статистика
-	fmt.Printf("\n=== SUMMARY ===\n")
-	fmt.Printf("Total files processed: %d\n", len(xlsxFiles))
-	fmt.Printf("Total messages: %d\n", totalMessages)
-	fmt.Printf("Valid messages: %d\n", totalValid)
-	fmt.Printf("Messages with errors: %d\n", totalErrors)
+func NewParserService(repo Repository) *ParserService {
+	return &ParserService{repo: repo}
 }
 
-// поиск всех XLSX файлов в указанной папке
-func findXLSXFiles(dir string) ([]string, error) {
-	var xlsxFiles []string
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() && filepath.Dir(path) == dir && strings.ToLower(filepath.Ext(path)) == ".xlsx" {
-			xlsxFiles = append(xlsxFiles, path)
-		}
-
-		return nil
-	})
-
-	return xlsxFiles, err
-}
-
-func cleanString(s string) string {
+func (p *ParserService) cleanString(s string) string {
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
 	s = strings.ReplaceAll(s, "\t", " ")
@@ -122,81 +39,78 @@ func cleanString(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func ProcessXLSX(ctx context.Context, f *excelize.File, authorID, filename string) (int, int, error) {
-
-	sheet := f.GetSheetName(0)
-	rows, err := f.GetRows(sheet)
-	if err != nil {
-		log.Printf("Error reading rows from %s: %v", filename, err)
-		return  0, 0,err
-	}
-
-	seen := make(map[string]struct{})
-	reportLines := []string{}
+func (p *ParserService) ProcessXLSX(ctx context.Context, f *excelize.File, authorID, filename string, fileID int) (int, int, error) {
 	validCount := 0
 	errorCount := 0
-	for i, row := range rows {
-		if len(row) < 2 {
-			errorCount++
-			continue
-		}
+	reportLines := []string{}
+	seen := make(map[string]struct{})
 
-		region := cleanString(row[0])
-		shrRaw := cleanString(row[1])
-		idepRaw := ""
-		iarrRaw := ""
-		if len(row) > 2 {
-			idepRaw = cleanString(row[2])
-		}
-		if len(row) > 3 {
-			iarrRaw = cleanString(row[3])
-		}
-
-		if region == "" || shrRaw == "" {
-			errorCount++
-			continue
-		}
-
-		if i < 5 {
-			reportLines = append(reportLines, fmt.Sprintf("Row %d debug - Region: '%s', SHR: '%s'", i+1, region, shrRaw))
-		}
-
-		msg, _, _ := parseSHR(shrRaw, region)
-
-		if idepRaw != "" {
-		}
-		if iarrRaw != "" {
-			ata := parseATAFromIARR(iarrRaw)
-			if ata != "" {
-				msg.ATA = ata
-			}
-		}
-
-		key := msg.SID + msg.DOF + msg.ATD
-		if _, exists := seen[key]; exists {
-			reportLines = append(reportLines, fmt.Sprintf("Row %d duplicate: %s", i+1, key))
-			errorCount++
-			continue
-		}
-		seen[key] = struct{}{}
-		if msg.SID == "" || msg.DepCoords == "" || msg.ATA == "" {
-			errorCount++
-			continue
-		}
-		err = .SaveMessage(context.Background(), &msg)
+	for _, sheet := range f.GetSheetList() { // проходим по всем листам
+		rows, err := f.GetRows(sheet)
 		if err != nil {
-			slog.Error("error saving message:", err.Error())
-			errorCount++
-
+			log.Printf("Error reading rows from sheet %s in file %s: %v", sheet, filename, err)
+			errorCount += 1
 			continue
 		}
-		validCount++
+		fmt.Println(sheet)
+		for i, row := range rows {
+			if len(row) < 2 {
+				errorCount++
+				continue
+			}
+
+			region := p.cleanString(row[0])
+			shrRaw := p.cleanString(row[1])
+			iarrRaw := ""
+			if len(row) > 3 {
+				iarrRaw = p.cleanString(row[3])
+			}
+
+			if region == "" || shrRaw == "" {
+				errorCount++
+				continue
+			}
+
+			if i < 5 {
+				reportLines = append(reportLines, fmt.Sprintf("Sheet %s Row %d debug - Region: '%s', SHR: '%s'", sheet, i+1, region, shrRaw))
+			}
+
+			msg, _, _ := p.parseSHR(shrRaw, region)
+
+			if iarrRaw != "" {
+				ata := p.parseATAFromIARR(iarrRaw)
+				if ata != "" {
+					msg.ATA = ata
+				}
+			}
+
+			key := msg.SID + msg.DOF + msg.ATD
+			if _, exists := seen[key]; exists {
+				reportLines = append(reportLines, fmt.Sprintf("Sheet %s Row %d duplicate: %s", sheet, i+1, key))
+				errorCount++
+				continue
+			}
+			seen[key] = struct{}{}
+
+			if msg.SID == "" || msg.DepCoords == "" || msg.ATA == "" {
+				errorCount++
+				continue
+			}
+
+			err = p.repo.SaveMessage(ctx, &msg, fileID)
+			if err != nil {
+				slog.Error("error saving message:", err.Error())
+				errorCount++
+				continue
+			}
+			validCount++
+		}
 	}
 
-	return nil, validCount, errorCount
+	return validCount, errorCount, nil
 }
 
-func parseSHR(raw string, region string) (model.ParsedMessage, []string, []string) {
+func (p *ParserService) parseSHR(raw string, region string) (model.ParsedMessage, []string, []string) {
 	msg := model.ParsedMessage{Region: region}
 	changes := []string{}
 	errs := []string{}
@@ -231,7 +145,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 			atd := atdPart[4:]
 			changes = append(changes, fmt.Sprintf("ATD time: '%s'", atd))
 
-			if valid, ch := validateTime(atd); valid {
+			if valid, ch := p.validateTime(atd); valid {
 				msg.ATD = ch
 				changes = append(changes, fmt.Sprintf("Valid ATD: %s", ch))
 			} else {
@@ -239,7 +153,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 			}
 		} else {
 			if len(atdPart) >= 4 {
-				if valid, ch := validateTime(atdPart); valid {
+				if valid, ch := p.validateTime(atdPart); valid {
 					msg.ATD = ch
 					changes = append(changes, fmt.Sprintf("Found ATD without ZZZZ prefix: %s", ch))
 				} else {
@@ -297,7 +211,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 	msg.MaxAlt = maxAlt
 
 	// Поле 15: высоты /ZONA ... - парсим зону полета
-	zoneCoords, zoneLatLon := parseZone(parts, changes)
+	zoneCoords, zoneLatLon := p.parseZone(parts, changes)
 	msg.ZoneCoords = zoneCoords
 	msg.ZoneLatLon = zoneLatLon
 
@@ -306,7 +220,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 		eetPart := parts[4]
 		if strings.HasPrefix(eetPart, "ZZZZ") {
 			eet := eetPart[4:]
-			if valid, ch := validateTime(eet); valid {
+			if valid, ch := p.validateTime(eet); valid {
 				msg.ATA = ch
 				changes = append(changes, fmt.Sprintf("Added ATA from EET: %s", ch))
 			}
@@ -321,11 +235,11 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 	}
 
 	changes = append(changes, fmt.Sprintf("Field 18: '%s'", field18))
-	kv := parseField18(field18)
+	kv := p.parseField18(field18)
 	changes = append(changes, fmt.Sprintf("Parsed fields: %v", kv))
 
 	if dof, ok := kv["DOF/"]; ok {
-		if valid, ch := validateDate(dof); valid {
+		if valid, ch := p.validateDate(dof); valid {
 			msg.DOF = ch
 			changes = append(changes, fmt.Sprintf("Normalized DOF: %s -> %s", dof, ch))
 		} else {
@@ -334,7 +248,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 	}
 	if dep, ok := kv["DEP/"]; ok {
 		changes = append(changes, fmt.Sprintf("Found DEP: '%s'", dep))
-		if valid, norm, latlon := validateCoords(dep); valid {
+		if valid, norm, latlon := p.validateCoords(dep); valid {
 			msg.DepCoords = norm
 			msg.DepLatLon = latlon
 			changes = append(changes, fmt.Sprintf("Normalized DEP: %s -> %s", dep, norm))
@@ -347,7 +261,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 
 	if dest, ok := kv["DEST/"]; ok {
 		changes = append(changes, fmt.Sprintf("Found DEST: '%s'", dest))
-		if valid, norm, latlon := validateCoords(dest); valid {
+		if valid, norm, latlon := p.validateCoords(dest); valid {
 			msg.ArrCoords = norm
 			msg.ArrLatLon = latlon
 			changes = append(changes, fmt.Sprintf("Normalized DEST: %s -> %s", dest, norm))
@@ -379,7 +293,7 @@ func parseSHR(raw string, region string) (model.ParsedMessage, []string, []strin
 	return msg, changes, errs
 }
 
-func parseField18(raw string) map[string]string {
+func (p *ParserService) parseField18(raw string) map[string]string {
 	kv := make(map[string]string)
 
 	if raw == "" {
@@ -408,7 +322,8 @@ func parseField18(raw string) map[string]string {
 }
 
 // парсинг зоны полета из поля 15
-func parseZone(parts []string, changes []string) ([]string, []orb.Point) {
+
+func (p *ParserService) parseZone(parts []string, changes []string) ([]string, []orb.Point) {
 	var zoneCoords []string
 	var zoneLatLon []orb.Point
 
@@ -426,7 +341,7 @@ func parseZone(parts []string, changes []string) ([]string, []orb.Point) {
 				zoneCoords = append(zoneCoords, coord)
 
 				// конвертируем в decimal
-				if valid, norm, latlon := validateCoords(coord); valid {
+				if valid, norm, latlon := p.validateCoords(coord); valid {
 					zoneLatLon = append(zoneLatLon, latlon)
 					changes = append(changes, fmt.Sprintf("Zone coord: %s -> %s", coord, norm))
 				} else {
@@ -443,7 +358,8 @@ func parseZone(parts []string, changes []string) ([]string, []orb.Point) {
 }
 
 // валидация и нормализация времени ччмм -> чч:мм
-func validateTime(t string) (bool, string) {
+
+func (p *ParserService) validateTime(t string) (bool, string) {
 	t = strings.TrimSpace(t)
 	if !timeRe.MatchString(t) {
 		return false, ""
@@ -467,7 +383,8 @@ func validateTime(t string) (bool, string) {
 }
 
 // валидация и нормализация даты
-func validateDate(d string) (bool, string) {
+
+func (p *ParserService) validateDate(d string) (bool, string) {
 	if !dateRe.MatchString(d) {
 		return false, ""
 	}
@@ -482,7 +399,8 @@ func validateDate(d string) (bool, string) {
 }
 
 // валидация и нормализация координат
-func validateCoords(c string) (bool, string, orb.Point) {
+
+func (p *ParserService) validateCoords(c string) (bool, string, orb.Point) {
 	m := coordRe.FindStringSubmatch(c)
 	if len(m) != 5 {
 		return false, "", orb.Point{}
@@ -502,9 +420,9 @@ func validateCoords(c string) (bool, string, orb.Point) {
 	}
 
 	// decimal
-	latD := float64(strToInt(latStr[:2]))
-	latM := float64(strToInt(latStr[2:4]))
-	latS := float64(strToInt(latStr[4:6]))
+	latD := float64(p.strToInt(latStr[:2]))
+	latM := float64(p.strToInt(latStr[2:4]))
+	latS := float64(p.strToInt(latStr[4:6]))
 	lat := latD + latM/60 + latS/3600
 	if ns == "S" {
 		lat = -lat
@@ -513,9 +431,9 @@ func validateCoords(c string) (bool, string, orb.Point) {
 		return false, "", [2]float64{}
 	}
 
-	lonD := float64(strToInt(lonStr[:3]))
-	lonM := float64(strToInt(lonStr[3:5]))
-	lonS := float64(strToInt(lonStr[5:7]))
+	lonD := float64(p.strToInt(lonStr[:3]))
+	lonM := float64(p.strToInt(lonStr[3:5]))
+	lonS := float64(p.strToInt(lonStr[5:7]))
 	lon := lonD + lonM/60 + lonS/3600
 	if ew == "W" {
 		lon = -lon
@@ -528,17 +446,17 @@ func validateCoords(c string) (bool, string, orb.Point) {
 	return true, norm, orb.Point{lon, lat}
 }
 
-func strToInt(s string) int {
+func (p *ParserService) strToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
 }
 
-func parseATAFromIARR(raw string) string {
+func (p *ParserService) parseATAFromIARR(raw string) string {
 	parts := strings.Split(raw, "-")
-	for _, p := range parts {
-		if strings.HasPrefix(p, "ATA ") {
-			t := strings.TrimSpace(p[4:])
-			if valid, norm := validateTime(t); valid {
+	for _, part := range parts {
+		if strings.HasPrefix(part, "ATA ") {
+			t := strings.TrimSpace(part[4:])
+			if valid, norm := p.validateTime(t); valid {
 				return norm
 			}
 		}
