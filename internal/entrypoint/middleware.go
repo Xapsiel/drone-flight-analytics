@@ -15,7 +15,7 @@ func (r *Router) RoleMiddleware(allowedRoles ...string) func(c *fiber.Ctx) error
 		}
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		user, err := r.service.UserService.GetUserInfo("", tokenStr)
+		user, err := r.service.UserService.GetCurrentUser(tokenStr)
 		if err != nil {
 			slog.Error("failed to parse user token", "error", err)
 			return c.Status(fiber.StatusUnauthorized).JSON(r.NewErrorResponse(fiber.StatusUnauthorized, "Unauthorized: invalid token"))

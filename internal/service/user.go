@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang-jwt/jwt"
 	"golang.org/x/oauth2"
 
 	"github.com/Xapsiel/bpla_dashboard/internal/config"
@@ -15,10 +16,11 @@ import (
 )
 
 type UserService struct {
-	repo     Repository
-	config   *oauth2.Config
-	OIDC     *oidc.IDTokenVerifier
-	provider *oidc.Provider
+	repo      Repository
+	config    *oauth2.Config
+	OIDC      *oidc.IDTokenVerifier
+	provider  *oidc.Provider
+	jwtSecret string
 }
 
 func NewUserService(repo Repository, cfg config.OidcConfig) *UserService {
@@ -41,10 +43,11 @@ func NewUserService(repo Repository, cfg config.OidcConfig) *UserService {
 	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.ClientID})
 
 	return &UserService{
-		repo:     repo,
-		config:   oauth2Config,
-		OIDC:     verifier,
-		provider: provider,
+		repo:      repo,
+		config:    oauth2Config,
+		OIDC:      verifier,
+		provider:  provider,
+		jwtSecret: cfg.JWTSecret,
 	}
 }
 func (u *UserService) ExchangeCode(code string) (model.User, error) {
@@ -109,4 +112,74 @@ func (u *UserService) GetUserInfo(idToken, accessToken string) (model.User, erro
 		Username: username,
 		Roles:    roles,
 	}, nil
+}
+
+// CreateSessionToken создает JWT токен для сессии пользователя
+func (u *UserService) CreateSessionToken(user model.User) (string, error) {
+	if u.jwtSecret == "" {
+		return "", fmt.Errorf("JWT secret is not configured")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": user.Username,
+		"roles":    user.Roles,
+		"exp":      time.Now().Add(time.Hour * 24).Unix(), // 24 часа
+		"iat":      time.Now().Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(u.jwtSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// ValidateSessionToken валидирует JWT токен сессии
+func (u *UserService) ValidateSessionToken(tokenString string) (*model.User, error) {
+	if u.jwtSecret == "" {
+		return nil, fmt.Errorf("JWT secret is not configured")
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(u.jwtSecret), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		username, ok := claims["username"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid username in token")
+		}
+
+		rolesInterface, ok := claims["roles"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid roles in token")
+		}
+
+		var roles []string
+		for _, role := range rolesInterface {
+			if roleStr, ok := role.(string); ok {
+				roles = append(roles, roleStr)
+			}
+		}
+
+		return &model.User{
+			Username: username,
+			Roles:    roles,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// GetCurrentUser возвращает информацию о текущем пользователе из токена
+func (u *UserService) GetCurrentUser(tokenString string) (*model.User, error) {
+	return u.ValidateSessionToken(tokenString)
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	fiberSwagger "github.com/gofiber/swagger"
@@ -20,6 +21,7 @@ type Repository interface {
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
+	GetDistrictsMVT(ctx context.Context, z, x, y int) ([]byte, error)
 	GetFile(ctx context.Context, id int) (model.File, error)
 }
 type Router struct {
@@ -46,6 +48,14 @@ func New(cfg Config) *Router {
 }
 
 func (r *Router) Routes(app fiber.Router) {
+	// Настройка CORS для фронтенда
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173,http://127.0.0.1:5173",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		AllowCredentials: true,
+	}))
+
 	app.Static("assets", "web/assets")
 	// Раздача статических тестовых данных (.data)
 	app.Static(".data", ".data")
@@ -55,12 +65,24 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Get("/swagger/*", fiberSwagger.New())
 
 	app.Get("/dashboard", monitor.New())
-	//district := app.Group("/district")
-	//district.Get("/", r.DistrictGeoJSONHandler)
+	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
+	district := app.Group("/district")
+	if r.isProduction {
+		district.Use(r.RoleMiddleware("admin", "analytics"))
+	}
+	district.Get("/", r.DistrictGeoJSONHandler)
+
+
 	user := app.Group("/user")
 	user.Use()
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
+	user.Get("/me", r.GetCurrentUserHandler)
+	user.Post("/logout", r.LogoutHandler)
+	user.Post("/refresh", r.RefreshTokenHandler)
+
+	// Эндпоинт для обработки callback от фронтенда
+	app.Get("/auth/callback", r.AuthCallbackHandler)
 
 	crawler := app.Group("/crawler")
 	crawler.Use(r.RoleMiddleware("admin"))
@@ -72,7 +94,6 @@ func (r *Router) Routes(app fiber.Router) {
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
 
-	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 }
 
 func (r *Router) NewPage() *model.Page {
