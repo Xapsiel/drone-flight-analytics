@@ -86,7 +86,7 @@ func (r *Repository) SaveFileInfo(ctx context.Context, mf model.File, valid_coun
 	return id, nil
 }
 
-func (r *Repository) GetFile(background context.Context, id string) (model.File, error) {
+func (r *Repository) GetFile(background context.Context, id int) (model.File, error) {
 	query := `
 				SELECT
 					user_id,filename, size, valid_count, error_count, metadata, status

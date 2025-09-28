@@ -14,11 +14,3 @@ CREATE TABLE IF NOT EXISTS files(
     UNIQUE (metadata)
 );
 
-CREATE TABLE IF NOT EXISTS admin_logs(
-    id SERIAL PRIMARY KEY ,
-    user_id TEXT NOT NULL ,
-    action action_type NOT NULL ,
-    file_id INTEGER REFERENCES files(id),
-    details JSONB,
-    created_at TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
-)

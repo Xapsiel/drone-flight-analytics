@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"mime/multipart"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -102,7 +103,16 @@ func (r *Router) UploadFileHandler(ctx *fiber.Ctx) error {
 }
 
 func (r *Router) CheckFileStatus(ctx *fiber.Ctx) error {
-	fileID := ctx.Params("id")
+	fileID, err := strconv.Atoi(ctx.Query("id"))
+	if err != nil {
+		slog.Error("failed to parse file id", "id", ctx.Query("id"))
+		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "Отсутствует fileID"))
+	}
 	f, err := r.repo.GetFile(context.Background(), fileID)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(r.NewErrorResponse(fiber.StatusBadRequest, "Ошибка с поиском файла"))
+	}
+	return ctx.Status(fiber.StatusOK).JSON(r.NewSuccessResponse(
+		f, ""))
 
 }

@@ -20,7 +20,7 @@ type Repository interface {
 	SaveFileInfo(background context.Context, mf model.File, valid_count int, error_count int) (int, error)
 	GetMetrics(ctx context.Context, id int, year int) (model.Metrics, error)
 	GetRegions(ctx context.Context) []model.District
-	GetFile(background context.Context, id string) (model.File, error)
+	GetFile(ctx context.Context, id int) (model.File, error)
 }
 type Router struct {
 	repo         Repository
@@ -60,7 +60,6 @@ func (r *Router) Routes(app fiber.Router) {
 		district.Use(r.RoleMiddleware("admin", "analytics"))
 	}
 	district.Get("/", r.DistrictGeoJSONHandler)
-	district.Get("/top", r.GetTopByHandler)
 	user := app.Group("/user")
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
 	user.Get("/redirect", r.RedirectAuthURLHandler)
