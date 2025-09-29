@@ -63,12 +63,10 @@ func (r *Router) Routes(app fiber.Router) {
 	app.Get("/swagger/*", fiberSwagger.New())
 
 	app.Get("/dashboard", monitor.New())
-	app.Get("/tiles/:z/:x/:y.mvt", r.GetTileMVT)
 	district := app.Group("/district")
-	if r.isProduction {
-		district.Use(r.RoleMiddleware("admin", "analytics"))
-	}
-	district.Get("/", r.DistrictGeoJSONHandler)
+	district.Use(r.RoleMiddleware("admin", "analytic"))
+	district.Get("/", r.GetDistricsIDs)
+	//district.Get("/", r.DistrictGeoJSONHandler)
 
 	user := app.Group("/user")
 	user.Get("/gen_auth_url", r.GenerateAuthURLHandler)
@@ -77,8 +75,6 @@ func (r *Router) Routes(app fiber.Router) {
 	user.Post("/logout", r.LogoutHandler)
 	user.Post("/refresh", r.RefreshTokenHandler)
 	app.Get("/auth/callback", r.AuthCallbackHandler)
-	// Эндпоинт для обработки callback от фронтенда
-	app.Get("/auth/callback", r.AuthCallbackHandler)
 
 	crawler := app.Group("/crawler")
 	crawler.Use(r.RoleMiddleware("admin"))
@@ -86,7 +82,7 @@ func (r *Router) Routes(app fiber.Router) {
 	crawler.Get("/status", r.CheckFileStatus)
 
 	metrics := app.Group("/metrics")
-	metrics.Use(r.RoleMiddleware("admin", "analytics"))
+	metrics.Use(r.RoleMiddleware("admin", "analytic"))
 	metrics.Get("/", r.GetMetrics)
 	metrics.Get("/all", r.GetAllMetrics)
 
