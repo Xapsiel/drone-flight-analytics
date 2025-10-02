@@ -30,7 +30,7 @@ func NewUserService(repo Repository, cfg config.OidcConfig) *UserService {
 	ctx := oidc.ClientContext(context.Background(), client)
 	provider, err := oidc.NewProvider(ctx, fmt.Sprintf("%s/realms/%s", cfg.KeycloakURL, cfg.KeycloakRealm))
 	if err != nil {
-		return nil
+		return &UserService{repo: repo, config: &oauth2.Config{}, provider: provider}
 	}
 
 	oauth2Config := &oauth2.Config{

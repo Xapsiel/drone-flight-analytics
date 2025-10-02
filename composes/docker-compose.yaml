@@ -10,6 +10,6 @@ services:
     ports:
       - 5437:5432
     volumes:
-      - drone_data:/var/lib/postgresql/data
+      - drone_data:/var/lshp2pgsql -s 4326 .data\admin_4.cpg public.district_shapes | psql -h localhost -p 5437 -d drone -U postgres -Wib/postgresql/data
 volumes:
   drone_data:

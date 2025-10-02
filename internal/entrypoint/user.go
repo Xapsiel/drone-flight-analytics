@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strings"
 
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -177,15 +176,12 @@ func (r *Router) RefreshTokenHandler(ctx *fiber.Ctx) error {
 	})
 }
 
-// AuthCallbackHandler обрабатывает callback от фронтенда
 func (r *Router) AuthCallbackHandler(ctx *fiber.Ctx) error {
 	token := ctx.Query("token")
 	if token == "" {
-		// Если токена нет, редиректим на главную страницу фронтенда
-		return ctx.Redirect("http://localhost:5173", fiber.StatusFound)
+		return ctx.Redirect(r.RedirectURL, fiber.StatusFound)
 	}
 
-	// Устанавливаем токен в cookie и редиректим на фронтенд
 	ctx.Cookie(&fiber.Cookie{
 		Name:     "auth_token",
 		Value:    token,
@@ -195,7 +191,6 @@ func (r *Router) AuthCallbackHandler(ctx *fiber.Ctx) error {
 		MaxAge:   3600, // 1 час
 	})
 
-	// Редирект на фронтенд
-	return ctx.Redirect(fmt.Sprintf("http://localhost:5173?token=%s", token), fiber.StatusFound)
+	return ctx.Redirect(fmt.Sprintf("%s?token=%s", r.RedirectURL, token), fiber.StatusFound)
 
 }

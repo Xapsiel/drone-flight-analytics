@@ -11,10 +11,11 @@ type Config struct {
 }
 
 type HostConfig struct {
-	IsProduction  bool   `yaml:"isProduction"`
-	Port          string `yaml:"port"`   //`env:"PORT" env-default:"8080"`
-	Domain        string `yaml:"domain"` //`env:"DOMAIN" env-default:"http://127.0.0.1:8080"`
-	MaxUploadSize int    `yaml:"maxUploadSize"`
+	IsProduction  bool     `yaml:"isProduction"`
+	Port          string   `yaml:"port"`   //`env:"PORT" env-default:"8080"`
+	Domain        string   `yaml:"domain"` //`env:"DOMAIN" env-default:"http://127.0.0.1:8080"`
+	MaxUploadSize int      `yaml:"maxUploadSize"`
+	Origins       []string `yaml:"origins"`
 }
 
 type DatabaseConfig struct {
@@ -28,13 +29,14 @@ type DatabaseConfig struct {
 }
 
 type OidcConfig struct {
-	ClientID       string   `yaml:"client_id"`
-	RedirectURI    string   `yaml:"redirect_uri"`
-	Scopes         []string `yaml:"scopes"`
-	KeycloakURL    string   `yaml:"keycloak_url"`
-	KeycloakRealm  string   `yaml:"keycloak_realm"`
-	KeycloakSecret string   `yaml:"keycloak_secret"`
-	JWTSecret      string   `yaml:"jwt_secret"`
+	ClientID         string   `yaml:"client_id"`
+	RedirectURI      string   `yaml:"redirect_uri"`
+	Scopes           []string `yaml:"scopes"`
+	KeycloakURL      string   `yaml:"keycloak_url"`
+	KeycloakRealm    string   `yaml:"keycloak_realm"`
+	KeycloakSecret   string   `yaml:"keycloak_secret"`
+	JWTSecret        string   `yaml:"jwt_secret"`
+	RedirectFrontURI string   `yaml:"redirect_front_uri"`
 }
 
 func New(path string) (*Config, error) {

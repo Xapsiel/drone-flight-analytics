@@ -54,10 +54,12 @@ func main() {
 	app.Get("/swagger/*", fiberSwagger.New())
 	service := service.New(repo, cfg.OidcConfig)
 	router := httpv1.New(httpv1.Config{
-		Repo:         repo,
-		Domain:       cfg.Domain,
-		Service:      &service,
-		IsProduction: cfg.IsProduction,
+		Repo:             repo,
+		Domain:           cfg.Domain,
+		Service:          &service,
+		IsProduction:     cfg.IsProduction,
+		Origins:          cfg.Origins,
+		RedirectFrontURI: cfg.RedirectFrontURI,
 	})
 	router.Routes(app)
 	log.Fatal(app.Listen(":" + cfg.HostConfig.Port))

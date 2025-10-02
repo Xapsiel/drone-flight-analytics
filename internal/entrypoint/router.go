@@ -2,6 +2,7 @@ package httpv1
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -28,13 +29,17 @@ type Router struct {
 	domain       string
 	isProduction bool
 	service      *service.Service
+	Origins      []string
+	RedirectURL  string
 }
 
 type Config struct {
-	Repo         Repository
-	Service      *service.Service
-	Domain       string
-	IsProduction bool
+	Repo             Repository
+	Service          *service.Service
+	Domain           string
+	IsProduction     bool
+	Origins          []string
+	RedirectFrontURI string
 }
 
 func New(cfg Config) *Router {
@@ -43,13 +48,15 @@ func New(cfg Config) *Router {
 		domain:       cfg.Domain,
 		isProduction: cfg.IsProduction,
 		service:      cfg.Service,
+		RedirectURL:  cfg.RedirectFrontURI,
+		Origins:      cfg.Origins,
 	}
 }
 
 func (r *Router) Routes(app fiber.Router) {
 	// Настройка CORS для фронтенда
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://127.0.0.1:5173",
+		AllowOrigins:     strings.Join(r.Origins, ","),
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
