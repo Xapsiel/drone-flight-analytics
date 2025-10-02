@@ -22,7 +22,7 @@ func (s *MetricsService) Update(ctx context.Context) error {
 	reg := s.repo.GetRegions(ctx)
 	years := s.repo.GetFlightYears(ctx)
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		for _, region := range reg {
