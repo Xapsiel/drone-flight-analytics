@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strings"
 
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -83,7 +82,7 @@ func (r *Router) RedirectAuthURLHandler(ctx *fiber.Ctx) error {
 	})
 
 	// Редирект на фронтенд с токеном в URL (если нужно)
-	frontendURL := fmt.Sprintf("%s/auth/callback?token=%s", r.domain, sessionToken)
+	frontendURL := fmt.Sprintf("%s/user/callback?token=%s", r.domain, sessionToken)
 
 	return ctx.Redirect(frontendURL, fiber.StatusFound)
 }
@@ -182,7 +181,8 @@ func (r *Router) AuthCallbackHandler(ctx *fiber.Ctx) error {
 	token := ctx.Query("token")
 	if token == "" {
 		// Если токена нет, редиректим на главную страницу фронтенда
-		return ctx.Redirect("http://localhost:5173", fiber.StatusFound)
+		return ctx.Redirect(r.FrontendURI, fiber.StatusFound)
+		//return ctx.Redirect("http://localhost:5173", fiber.StatusFound)
 	}
 
 	// Устанавливаем токен в cookie и редиректим на фронтенд
@@ -196,6 +196,6 @@ func (r *Router) AuthCallbackHandler(ctx *fiber.Ctx) error {
 	})
 
 	// Редирект на фронтенд
-	return ctx.Redirect(fmt.Sprintf("http://localhost:5173?token=%s", token), fiber.StatusFound)
+	return ctx.Redirect(fmt.Sprintf("%s?token=%s", r.FrontendURI, token), fiber.StatusFound)
 
 }

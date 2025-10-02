@@ -58,6 +58,8 @@ func main() {
 		Domain:       cfg.Domain,
 		Service:      &service,
 		IsProduction: cfg.IsProduction,
+		Origins:      cfg.Origins,
+		FrontendURI:  cfg.FrontendURI,
 	})
 	router.Routes(app)
 	log.Fatal(app.Listen(":" + cfg.HostConfig.Port))

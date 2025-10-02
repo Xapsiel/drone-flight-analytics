@@ -2,6 +2,7 @@ package httpv1
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -28,6 +29,8 @@ type Router struct {
 	domain       string
 	isProduction bool
 	service      *service.Service
+	FrontendURI  string
+	Origins      []string
 }
 
 type Config struct {
@@ -35,6 +38,8 @@ type Config struct {
 	Service      *service.Service
 	Domain       string
 	IsProduction bool
+	FrontendURI  string
+	Origins      []string
 }
 
 func New(cfg Config) *Router {
@@ -43,13 +48,17 @@ func New(cfg Config) *Router {
 		domain:       cfg.Domain,
 		isProduction: cfg.IsProduction,
 		service:      cfg.Service,
+		FrontendURI:  cfg.FrontendURI,
+		Origins:      cfg.Origins,
 	}
 }
 
 func (r *Router) Routes(app fiber.Router) {
 	// Настройка CORS для фронтенда
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://127.0.0.1:5173",
+		//AllowOrigins:     "http://localhost:5173,http://127.0.0.1:5173",
+		AllowOrigins: strings.Join(r.Origins, ","),
+
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
@@ -74,7 +83,7 @@ func (r *Router) Routes(app fiber.Router) {
 	user.Get("/me", r.GetCurrentUserHandler)
 	user.Post("/logout", r.LogoutHandler)
 	user.Post("/refresh", r.RefreshTokenHandler)
-	app.Get("/auth/callback", r.AuthCallbackHandler)
+	user.Get("/callback", r.AuthCallbackHandler)
 
 	crawler := app.Group("/crawler")
 	crawler.Use(r.RoleMiddleware("admin"))

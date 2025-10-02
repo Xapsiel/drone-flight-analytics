@@ -11,10 +11,12 @@ type Config struct {
 }
 
 type HostConfig struct {
-	IsProduction  bool   `yaml:"isProduction"`
-	Port          string `yaml:"port"`   //`env:"PORT" env-default:"8080"`
-	Domain        string `yaml:"domain"` //`env:"DOMAIN" env-default:"http://127.0.0.1:8080"`
-	MaxUploadSize int    `yaml:"maxUploadSize"`
+	IsProduction  bool     `yaml:"isProduction"`
+	Port          string   `yaml:"port"`   //`env:"PORT" env-default:"8080"`
+	Domain        string   `yaml:"domain"` //`env:"DOMAIN" env-default:"http://127.0.0.1:8080"`
+	MaxUploadSize int      `yaml:"maxUploadSize"`
+	FrontendURI   string   `yaml:"frontend_uri"`
+	Origins       []string `yaml:"origins"`
 }
 
 type DatabaseConfig struct {
